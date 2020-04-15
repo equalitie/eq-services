@@ -5,11 +5,6 @@ Including:
 
 - Docker
 - Bind
-- Deflect
-  - autodeflect
-  - eQpress [controller]
-  - edgemanage
-  - Apache Traffic Server edges w/banjax
 - eQbackup [controller]
 - Icinga [monitoring]
 - Letsencrypt [server]
@@ -76,21 +71,6 @@ Building the controller
     ```autodeflect, eqbackup, eqpress```
     Some have their own init.yml
 
-## Deflect Edge Filebeat
-
-add config/edges.yml fields
-
-```
-    filebeat:
-      - remote: test1
-      - remote: test2
-```
-
-under the dnet.
-
-This will be the host name. The deflect_site_domain get automatically appened
-
-Then add the 3 certs in ```config/filebeat/{rootca.hostname.pem,edgecert.hostname.pem,edgecert.hostname.key}``` 
 
 ## License
 
