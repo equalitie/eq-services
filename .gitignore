@@ -1,0 +1,7 @@
+/config/
+*.retry
+/inventory
+/group_vars
+*.swp
+/deploy.yml
+/host_vars

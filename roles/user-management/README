@@ -1,0 +1,64 @@
+This role is user to manage users in cityhall.
+
+It is not meant for users that we provision on
+servers, but like for email users, etc.
+
+
+The way you use this is create a file named
+config/users/inventory_hostname.yml formated
+like this:
+
+
+---
+users_list:
+  - user: test1
+    name: 'Test User'
+    active: true
+    shell: '/bin/sh'
+    comment: 'This is a test user'
+    create_home: true
+    home: '/home/test1'
+    groups:
+      - sudo
+  - user: test2
+    name: 'Test2 User'
+    active: true
+    shell: '/bin/false'
+    create_home: true
+    home: '/home/test2'
+    comment: 'This is a test user 2'
+    groups:
+      - sudo
+      - sys
+  - user: test3
+    name: 'Test3 User'
+    active: true
+    shell: '/bin/false'
+    create_home: false
+    comment: 'This is a test user 3'
+    groups:
+      - sudo
+
+Note: A user without a home directory will
+not get a password set and will basically
+be locked without a password.
+
+You can make "active: false". This will not
+delete the user but will lock this user. To
+delete a user you must add both "active: false"
+and "delete: true"
+
+When a user is first created it will store the
+user,{passwd or password pusher url if passswd pusher is used}
+
+To enable password pusher you will need to set
+pwpusher: true
+pwpusher_url: "https://your.passwordpusher.tld/pw.php"
+
+When a password gets set a file in the users home directory
+named ".password_set" will be written. If you need a password
+reset, just remove this file and run the playbook again.
+
+A "users" tag is setup so that you can run
+
+ansible-playbook site.yml --tags=users

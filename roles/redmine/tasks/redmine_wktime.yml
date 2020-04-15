@@ -1,0 +1,11 @@
+---
+- name: install redmine_wktime from git
+  become: true
+  become_user: "{{ redmine_user }}"
+  git:
+    repo: "{{ redmine_wktime_repo }}"
+    dest: "{{ redmine_root }}/plugins/redmine_wktime"
+    version: "master"
+  notify:
+    - 'plugins migrate'
+    - 'nginx restart'

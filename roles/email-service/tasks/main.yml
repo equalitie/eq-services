@@ -1,0 +1,53 @@
+---
+- fail:
+    msg: 'Mail Services install must be on Debian 10 or above'
+  when: ansible_distribution != 'Debian' or ansible_distribution_version < '10'
+
+- include_tasks: nginx.yml
+  tags: always
+
+- include_tasks: postfix.yml
+  tags: always
+
+- include_tasks: dovecot.yml
+  tags: always
+
+- include_tasks: mailman.yml
+  when: enable_mailman
+  tags: always
+
+- include_tasks: webmin.yml
+  when: enable_usermin
+  tags: always
+
+- name: install fail2ban
+  become: true
+  apt:
+    name: fail2ban
+    state: present
+  when: mail_use_fail2ban
+
+- name: allow all ssh option
+  become: yes
+  ufw:
+    rule: allow
+    proto: tcp
+    to_port: "22"
+  when: allow_all_ssh
+  notify: reload ufw
+
+- meta: flush_handlers
+
+- command: /usr/sbin/amavisd-new showkeys
+  become: true
+  register: showkeys
+
+- name: copy dkim keys to url
+  become: true
+  copy:
+    content: "{{ showkeys.stdout }}"
+    dest: "{{ mailserver_nginx_root }}/public/dkim.txt"
+    owner: root
+    group: root
+    mode: '0644'
+  when: showkeys is defined

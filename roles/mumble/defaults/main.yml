@@ -1,0 +1,4 @@
+---
+mumble_port: '64738'
+mumble_password: "default"
+mumble_superuser_pass: "default"

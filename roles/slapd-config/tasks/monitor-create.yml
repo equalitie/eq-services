@@ -1,0 +1,9 @@
+---
+- name: Create monitor database
+  become: true
+  command: /usr/local/bin/slapd-create-monitor "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout"
+

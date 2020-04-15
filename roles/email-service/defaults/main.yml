@@ -1,0 +1,32 @@
+---
+email_prefix: ''
+mailserver_nginx_root: '/var/www/mailserver'
+mail_use_letsencrypt: false
+dkim_key_size: '2048'
+mailbox_size_limit: '20480000'
+postfix_relay_recipient_maps: ''
+allow_all_ssh: false
+# Note: do not include the ending /. It is added in the code
+# where needed.
+postfix_home_mailbox: 'Maildir'
+# Next two will hide the Receive header.
+# hideclient will hide all the server Receive hearders
+# hideprivate will convert private ipaddr to a string, hiding the ipaddr
+# hideclient overrides hideprivate
+hideclient: true
+hideprivate: true
+amavis_max_servers: '6'
+
+enable_mailman: false
+mailman_default_language: 'en (English)'
+mailman_languages:
+  - 'en (English)'
+  - 'ru (Russian)'
+  - 'fr (French)'
+
+# Usermin -- Not recommended -- Manual configuration needed
+enable_usermin: false
+webmin_key: "http://www.webmin.com/jcameron-key.asc"
+webmin_repo: "deb http://download.webmin.com/download/repository sarge contrib"
+
+mail_use_fail2ban: true

@@ -1,0 +1,25 @@
+#!/bin/bash
+# {{ansible_managed}}
+
+KILLRET=1
+
+if [ -f /var/run/swabberd.pid ]; then
+  SWPID=$(cat /var/run/swabberd.pid)
+  /bin/kill -0 "$SWPID" >/dev/null 2>&1
+  KILLRET=$?
+fi
+
+if [ $KILLRET = 0 ]; then
+  echo OK - PID $SWPID
+  exit 0
+else
+# TODO: Do not try to restart. If start to fail a lot
+# then fix this or fix systemd to auto restart
+   echo FAIL - PID not found
+#  echo FAIL - attempting to restart
+#  /etc/init.d/swabberd stop
+#  sleep 1
+#  /usr/bin/killall -9 swabberd
+#  /etc/init.d/swabberd start
+  exit 2
+fi

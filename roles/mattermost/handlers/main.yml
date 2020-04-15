@@ -1,0 +1,32 @@
+---
+- name: enable mattermost
+  become: true
+  systemd:
+    name: mattermost
+    state: started
+    enabled: true
+
+- name: restart mattermost
+  become: true
+  systemd:
+    name: mattermost
+    state: restarted
+  register: mmrestart
+
+- name: reload mattermost
+  become: true
+  systemd:
+    name: mattermost
+    state: reloaded
+  when: mmrestart is not defined
+
+- name: reload nginx
+  become: true
+  systemd:
+    name: nginx
+    state: reloaded
+
+- name: reload ufw
+  become: yes
+  ufw:
+    state: reloaded

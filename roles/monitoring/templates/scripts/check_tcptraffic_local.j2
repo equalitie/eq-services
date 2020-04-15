@@ -1,0 +1,6 @@
+#!/bin/sh
+# {{ansible_managed}}
+
+CHECK_TCPTRAFFIC="/usr/bin/perl /usr/local/bin/check_tcptraffic"
+
+$CHECK_TCPTRAFFIC --interface {{ansible_default_ipv4.interface}} "$@"

@@ -1,0 +1,10 @@
+---
+# defaults file for bind_standalone
+
+zones: []
+forwarders: []
+zone_transfer_peers: []
+zone_files_path: "/var/cache/bind"
+masters: []
+slaves: []
+zone_recursion_acls: []

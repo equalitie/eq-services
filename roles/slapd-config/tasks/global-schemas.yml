@@ -1,0 +1,12 @@
+---
+- name: Load LDAP schemas
+  become: true
+  command: >
+    /usr/local/bin/slapd-global-schema "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "{{ item }}" "{{ slapd_olc_dir }}"
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout"
+  when: "slapd_schemas is defined"
+  loop: "{{ slapd_schemas }}"

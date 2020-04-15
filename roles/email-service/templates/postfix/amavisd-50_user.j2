@@ -1,0 +1,50 @@
+# {{ ansible_managed }}
+
+$inet_socket_port = [10024,10026];
+
+#chomp($mydomain = `head -n 1 /etc/mailname`);
+#$myhostname = "mail.example.com";
+
+@bypass_virus_checks_maps = (
+   \%bypass_virus_checks, \@bypass_virus_checks_acl, \$bypass_virus_checks_re);
+
+@bypass_spam_checks_maps = (
+   \%bypass_spam_checks, \@bypass_spam_checks_acl, \$bypass_spam_checks_re);
+
+$X_HEADER_LINE = "{{ org_name }} $myproduct_name at $mydomain";
+
+# DOMAIN KEYS IDENTIFIED MAIL (DKIM)
+$enable_dkim_verification = 1;
+$enable_dkim_signing = 1;
+
+$final_virus_destiny      = D_DISCARD;
+$final_banned_destiny     = D_DISCARD;
+$final_spam_destiny       = D_PASS;
+$final_bad_header_destiny = D_PASS;
+
+$sa_spam_subject_tag = undef;
+$virus_admin = undef;
+$spam_admin = undef;
+
+$interface_policy{'10026'} = 'ORIGINATING';
+$policy_bank{'ORIGINATING'} = {  # mail originating from our users
+  originating => 1,  # indicates client is ours, allows signing
+  # force MTA to convert mail to 7-bit before DKIM signing
+  # to avoid later conversions which could destroy signature:
+  # smtpd_discard_ehlo_keywords => ['8BITMIME'],
+};
+
+$enable_dkim_verification = 1;
+$enable_dkim_signing = 1;
+{% for domain in dkim_domains %}
+ dkim_key('{% for dsplit in domain.split(".") %}{% if dsplit == domain.split(".")[0] %}{% elif  dsplit == domain.split(".")[1] %}{{ dsplit }}{% else %}.{{ dsplit }}{% endif %}{% endfor %}', '{{ domain.split(".")[0] }}', '/etc/postfix/dkim/dkim-{{ domain }}-{{ dkim_key_size }}.pem');
+{% endfor %}
+ @dkim_signature_options_bysender_maps = ({
+{% for domain in dkim_domains %}
+   '{% for dsplit in domain.split(".") %}{% if dsplit == domain.split(".")[0] %}{% elif  dsplit == domain.split(".")[1] %}{{ dsplit }}{% else %}.{{ dsplit }}{% endif %}{% endfor %}' => { d => '{% for dsplit in domain.split(".") %}{% if dsplit == domain.split(".")[0] %}{% elif  dsplit == domain.split(".")[1] %}{{ dsplit }}{% else %}.{{ dsplit }}{% endif %}{% endfor %}', a => 'rsa-sha256', ttl => 10*24*3600, c => 'relaxed/simple' }{% if not loop.last %},
+{% endif %}{% endfor %}
+});
+
+@local_domains_acl = ( {% if enable_mailman %}"{{ mailman_domain }}", {% endif %}{% for ldomain in all_local %}"{{ ldomain }}"{% if not loop.last %}, {% endif %}{% endfor %} );
+
+$max_servers = {{ amavis_max_servers }};

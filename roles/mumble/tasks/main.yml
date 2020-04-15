@@ -1,0 +1,101 @@
+---
+- fail:
+    msg: 'mumble install must be on Debian 10 or above'
+  when: ansible_distribution != 'Debian' or ansible_distribution_version < '10'
+
+- name: add mumble
+  become: true
+  apt:
+    name: mumble-server
+    state: present
+
+- name: add certbot if we are using letsencrypt
+  become: true
+  apt:
+    name: certbot
+    state: present
+  when: mumble_use_letsencrypt is defined and mumble_use_letsencrypt
+
+- name: allow port 80 if letsencrypt
+  become: yes
+  ufw:
+    rule: allow
+    to_port: "80"
+  when: mumble_use_letsencrypt is defined and mumble_use_letsencrypt
+  notify: reload ufw
+  tags:
+    - ufw
+
+- meta: flush_handlers
+
+# Note: group: mumble-server should be created from .deb apt install
+
+- name: check if letsencrypt certs have been generated
+  become: true
+  stat:
+    path: "/etc/letsencrypt/live/{{ mumble_sites.0 }}/fullchain.pem"
+  register: statcert
+  when: mumble_use_letsencrypt is defined and mumble_use_letsencrypt
+
+- name: get letsencrypt certs is they do not exist
+  become: true
+  shell: "certbot certonly --standalone --preferred-challenges http --agree-tos --email {{admin_email}} {% for site in mumble_sites %}-d {{ site }} {% endfor %}"
+  when: (statcert.stat.islnk is undefined) and
+        (mumble_use_letsencrypt is defined and mumble_use_letsencrypt)
+
+- name: check if letsencrypt certs have been generated [2]
+  become: true
+  stat:
+    path: "/etc/letsencrypt/live/{{ mumble_sites.0 }}/fullchain.pem"
+  register: statcert
+  when: mumble_use_letsencrypt is defined and mumble_use_letsencrypt
+
+- name: install mumble configuration file
+  become: true
+  template:
+    src: mumble-server.ini.j2
+    dest: /etc/mumble-server.ini
+    owner: root
+    group: mumble-server
+    mode: '0660'
+  notify:
+    - 'restart mumble'
+
+- name: install mumble /etc/default config
+  become: true
+  template:
+    src: default_mumble-server.j2
+    dest: /etc/default/mumble-server
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - 'restart mumble'
+
+- name: allow mumble to port {{mumble_port}}
+  become: yes
+  ufw:
+    rule: allow
+    to_port: "{{mumble_port}}"
+  notify: reload ufw
+  tags:
+    - ufw
+
+# murmurd -ini /etc/mumble-server.ini -supw somepassword
+- name: set SuperUser password
+  become: true
+  shell: murmurd -ini /etc/mumble-server.ini -supw {{ mumble_superuser_pass }} 2<&1 | grep 'Superuser password set on server'
+
+- name: cron certbot renew
+  become: true
+  cron:
+    name: "renew redmine cert"
+    state: present
+    user: root
+    minute: "15"
+    hour: "19"
+    weekday: "0"
+    job: "/usr/bin/certbot renew --renew-hook \"systemctl restart mumble-server\""
+  when: mumble_use_letsencrypt is defined and mumble_use_letsencrypt
+  tags:
+    - cron

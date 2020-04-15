@@ -1,0 +1,51 @@
+#!/bin/bash
+# {{ansible_managed}}
+#
+# Used to check if the Apache Traffic Server has had a STACK TRACE
+# since last time ran
+
+TROUT0="{{TSPATH}}/logs/traffic.out"
+TROUT1="/tmp/traffic.out"
+
+SCRIPTUSER="{{icinga_user}}"
+CURRENTUSER=$(whoami)
+
+ICINGAOK=0
+ICINGAWARN=1
+ICINGACRIT=2
+
+function copy_trout() {
+	if (! $(cat 2>/dev/null $TROUT0 > $TROUT1))
+	then
+		echo "WARNING: Could not copy $TROUT0 > $TROUT1"
+		exit $ICINGAWARN
+	fi
+}
+
+if [ "x$CURRENTUSER" != "x$SCRIPTUSER" ]; then
+	echo "Check must be run as user: $SCRIPTUSER"
+	exit $ICINGAWARN
+fi
+
+
+# First make sure we can read the log file
+if [ ! -r $TROUT0 ] ; then
+	echo "WARNING: $TROUT is not readable. No check done."
+	exit $ICINGAWARN
+fi
+
+# If never ran before or last file missing. Copy now.
+if [ ! -r $TROUT1 ] ; then
+	copy_trout
+fi
+
+if diff $TROUT0 $TROUT1 | grep 'STACK TRACE' >/dev/null 2<&1
+then
+	copy_trout
+       	echo "CRIT: STACK TRACE detected since last run"
+	exit $ICINGACRIT
+else
+	copy_trout
+	echo "Okay"
+	exit $ICINGAOK
+fi

@@ -1,0 +1,22 @@
+# {{ansible_managed}}
+
+[min]
+pattern = \.min$
+xFilesFactor = 0.1
+aggregationMethod = min
+
+[max]
+pattern = \.max$
+xFilesFactor = 0.1
+aggregationMethod = max
+
+[sum]
+pattern = \.count$
+xFilesFactor = 0
+aggregationMethod = sum
+
+# [ML] changed xFilesFactor from 0.5 to 0.1
+[default_average]
+pattern = .*
+xFilesFactor = 0.1
+aggregationMethod = average

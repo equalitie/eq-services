@@ -1,0 +1,355 @@
+// {{ansible_managed}}
+
+object NotificationCommand "mail-host-notification" {
+  command = [ ConfigDir + "/scripts/mail-host-notification.sh" ]
+
+  arguments += {
+    "-4" = "$notification_address$"
+    "-6" = "$notification_address6$"
+    "-b" = "$notification_author$"
+    "-c" = "$notification_comment$"
+    "-d" = {
+      required = true
+      value = "$notification_date$"
+    }
+    "-f" = {
+      value = "$notification_from$"
+      description = "Set from address. Requires GNU mailutils (Debian/Ubuntu) or mailx (RHEL/SUSE)"
+    }
+    "-i" = "$notification_icingaweb2url$"
+    "-l" = {
+      required = true
+      value = "$notification_hostname$"
+    }
+    "-n" = {
+      required = true
+      value = "$notification_hostdisplayname$"
+    }
+    "-o" = {
+      required = true
+      value = "$notification_hostoutput$"
+    }
+    "-r" = {
+      required = true
+      value = "$notification_useremail$"
+    }
+    "-s" = {
+      required = true
+      value = "$notification_hoststate$"
+    }
+    "-t" = {
+      required = true
+      value = "$notification_type$"
+    }
+    "-v" = "$notification_logtosyslog$"
+  }
+
+  vars += {
+    notification_address = "$address$"
+    notification_address6 = "$address6$"
+    notification_author = "$notification.author$"
+    notification_comment = "$notification.comment$"
+    notification_type = "$notification.type$"
+    notification_date = "$icinga.long_date_time$"
+    notification_hostname = "$host.name$"
+    notification_hostdisplayname = "$host.display_name$"
+    notification_hostoutput = "$host.output$"
+    notification_hoststate = "$host.state$"
+    notification_useremail = "$user.email$"
+  }
+}
+
+object NotificationCommand "mail-service-notification" {
+  command = [ ConfigDir + "/scripts/mail-service-notification.sh" ]
+
+  arguments += {
+    "-4" = "$notification_address$"
+    "-6" = "$notification_address6$"
+    "-b" = "$notification_author$"
+    "-c" = "$notification_comment$"
+    "-d" = {
+      required = true
+      value = "$notification_date$"
+    }
+    "-e" = {
+      required = true
+      value = "$notification_servicename$"
+    }
+    "-f" = {
+      value = "$notification_from$"
+      description = "Set from address. Requires GNU mailutils (Debian/Ubuntu) or mailx (RHEL/SUSE)"
+    }
+    "-i" = "$notification_icingaweb2url$"
+    "-l" = {
+      required = true
+      value = "$notification_hostname$"
+    }
+    "-n" = {
+      required = true
+      value = "$notification_hostdisplayname$"
+    }
+    "-o" = {
+      required = true
+      value = "$notification_serviceoutput$"
+    }
+    "-r" = {
+      required = true
+      value = "$notification_useremail$"
+    }
+    "-s" = {
+      required = true
+      value = "$notification_servicestate$"
+    }
+    "-t" = {
+      required = true
+      value = "$notification_type$"
+    }
+    "-u" = {
+      required = true
+      value = "$notification_servicedisplayname$"
+    }
+    "-v" = "$notification_logtosyslog$"
+  }
+
+  vars += {
+    notification_address = "$address$"
+    notification_address6 = "$address6$"
+    notification_author = "$notification.author$"
+    notification_comment = "$notification.comment$"
+    notification_type = "$notification.type$"
+    notification_date = "$icinga.long_date_time$"
+    notification_hostname = "$host.name$"
+    notification_hostdisplayname = "$host.display_name$"
+    notification_servicename = "$service.name$"
+    notification_serviceoutput = "$service.output$"
+    notification_servicestate = "$service.state$"
+    notification_useremail = "$user.email$"
+    notification_servicedisplayname = "$service.display_name$"
+  }
+}
+
+/*
+ * If you prefer to use the notification scripts with environment
+ * variables instead of command line parameters, you can use
+ * the following commands. They have been updated from < 2.7
+ * to support the new notification scripts and should help
+ * with an upgrade.
+ * Remove the comment blocks and comment the notification commands above.
+ */
+
+/*
+ * Leave this here for reference. Notice it is commented out
+ *
+object NotificationCommand "mail-host-notification" {
+  command = [ ConfigDir + "/scripts/mail-host-notification.sh" ]
+
+  env = {
+    NOTIFICATIONTYPE = "$notification.type$"
+    HOSTDISPLAYNAME = "$host.display_name$"
+    HOSTNAME = "$host.name$"
+    HOSTADDRESS = "$address$"
+    HOSTSTATE = "$host.state$"
+    LONGDATETIME = "$icinga.long_date_time$"
+    HOSTOUTPUT = "$host.output$"
+    NOTIFICATIONAUTHORNAME = "$notification.author$"
+    NOTIFICATIONCOMMENT = "$notification.comment$"
+    HOSTDISPLAYNAME = "$host.display_name$"
+    USEREMAIL = "$user.email$"
+  }
+}
+
+object NotificationCommand "mail-service-notification" {
+  command = [ ConfigDir + "/scripts/mail-service-notification.sh" ]
+
+  env = {
+    NOTIFICATIONTYPE = "$notification.type$"
+    SERVICENAME = "$service.name$"
+    HOSTNAME = "$host.name$"
+    HOSTDISPLAYNAME = "$host.display_name$"
+    HOSTADDRESS = "$address$"
+    SERVICESTATE = "$service.state$"
+    LONGDATETIME = "$icinga.long_date_time$"
+    SERVICEOUTPUT = "$service.output$"
+    NOTIFICATIONAUTHORNAME = "$notification.author$"
+    NOTIFICATIONCOMMENT = "$notification.comment$"
+    HOSTDISPLAYNAME = "$host.display_name$"
+    SERVICEDISPLAYNAME = "$service.display_name$"
+    USEREMAIL = "$user.email$"
+  }
+}
+
+*/
+
+/*
+ * some of our custom commands
+ */
+
+// TODO: Add these arguments as host vars so we can addjust at host level
+object CheckCommand "swabber" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_swabberd" ]
+  arguments = {
+            "-c" = "800",
+            "-w" = "300"
+        }
+}
+
+object CheckCommand "memory" {
+  import "plugin-check-command"
+  command = [ PluginDir + "/check_memory" ]
+}
+
+object CheckCommand "zombies" {
+  import "plugin-check-command"
+  command = [ PluginDir + "/check_procs" ]
+  arguments = {
+            "-s" = "Z",
+            "-c" = "10",
+            "-w" = "5"
+         }
+}
+
+object CheckCommand "deflect-log" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_deflectlogmtime" ]
+}
+
+object CheckCommand "swabber-running" {
+  import "plugin-check-command"
+  command = [ "/usr/bin/sudo", "/usr/local/bin/check_swabberd_running" ]
+}
+
+object CheckCommand "tcptraffic" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_tcptraffic_local" ]
+  arguments = {
+            "--critical" = "26214400"
+            "--warning" = "10485760"
+            "--speed" = "200000"
+        }
+}
+
+object CheckCommand "connections" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_connections" ]
+  arguments = {
+            "-c" = "8000"
+            "-w" = "6000"
+         }
+}
+
+object CheckCommand "deflect-maint-lock" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_autodeflect_maintmode" ]
+}
+
+object CheckCommand "deflect-autodeflect-running" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_autodeflect_procs" ]
+}
+
+object CheckCommand "deflect-banjax-ban-rate" {
+  import "plugin-check-command"
+  command = [ "/usr/bin/sudo", "/usr/local/bin/check_banjax_ban_rate" ]
+}
+
+object CheckCommand "deflect-clientsyml-timestamp" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_clientsyml_timestamp" ]
+  arguments = {
+            "-c" = "1800"
+            "-w" = "900"
+         }
+}
+
+object CheckCommand "check-edgemanage-integrity" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_edgemanage_integrity" ]
+  arguments = {
+            "-d" = {
+                     value = "$dnet$"
+                     description = "The dnet being checked"
+                     required = true
+               }
+            "-c" = {
+                     value = "$eman_intg_crit$"
+                     description = "Critical"
+               }
+            "-w" = {
+                     value = "$eman_intg_warn$"
+                     description = "Warning"
+               }
+         }
+         vars.dnet = "$dnet$"
+         vars.eman_intg_crit = "100"
+         vars.eman_intg_warn = "1"
+}
+
+object CheckCommand "check-edgemanage-rotation" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_edgemanage_rotation" ]
+  arguments = {
+            "-d" = {
+                     value = "$dnet$"
+                     description = "The dnet being checked"
+                     required = true
+               }
+            "-c" = {
+                     value = "$eman_rota_crit$"
+                     description = "Critical"
+               }
+            "-w" = {
+                     value = "$eman_rota_warn$"
+                     description = "Warning"
+               }
+         }
+         vars.dnet = "$dnet$"
+         vars.eman_rota_crit = "100"
+         vars.eman_rota_warn = "1"
+}
+
+object CheckCommand "check-edgemanage-loop" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_edgemanage_loop" ]
+  arguments = {
+		"-c" = "2"
+		"-w" = "5"
+  }
+}
+
+object CheckCommand "check-total-bans" {
+  import "plugin-check-command"
+  command = [ "/usr/bin/sudo", "/usr/local/bin/check_total_bans" ]
+  arguments = {
+		"-c" = "10000"
+		"-w" = "1000"
+  }
+}
+
+object CheckCommand "check-ssl-certs" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_ssl_certs", "-n" ]
+  timeout = 5m
+}
+
+object CheckCommand "check-log-injection" {
+  import "plugin-check-command"
+  command = [ "/usr/bin/sudo", "/usr/local/bin/check_log_injection" ]
+  arguments = {
+	"-c" = {
+		value = "$log_inj_crit$"
+		description = "Critical"
+		}
+	"-w" = {
+		value = "$log_inj_warn$"
+		description = "Warning"
+		}
+	}
+	vars.log_inj_crit = "60"
+	vars.log_inj_warn = "5"
+}
+
+object CheckCommand "check-ats-crash" {
+  import "plugin-check-command"
+  command = [ "/usr/local/bin/check_ats_stack_trace" ]
+}

@@ -1,0 +1,144 @@
+---
+- name: install certbot if we are using letsencrypt
+  become: true
+  apt:
+    name: certbot
+    state: present
+  when: mail_use_letsencrypt
+
+- name: install fcgiwrap if mailman is enabled
+  become: true
+  apt:
+    name: fcgiwrap
+    state: present
+  when: enable_mailman
+  tags:
+    - mailman
+
+- name: create {{ mailserver_nginx_root }}/*
+  become: true
+  file:
+    path: "{{ mailserver_nginx_root }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    -
+    - public
+  tags:
+    - mailserver_nginx
+
+- name: check if letsencrypt certs have been generated
+  become: true
+  stat:
+    path: "/etc/letsencrypt/live/{{ mailserver_sites.0 }}/fullchain.pem"
+  register: statcert
+  when: mail_use_letsencrypt
+
+- name: install mailserver nginx site config
+  become: true
+  template:
+    src: nginx/email_site.j2
+    dest: /etc/nginx/sites-available/mailserver
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - reload nginx
+
+- name: sysmlink mailserver site config in sites-enabled
+  become: true
+  file:
+    src: /etc/nginx/sites-available/mailserver
+    dest: /etc/nginx/sites-enabled/mailserver
+    owner: root
+    group: root
+    state: link
+  notify:
+    - reload nginx
+
+- name: restart nginx if no letsencrypt certs
+  become: true
+  systemd:
+    name: nginx
+    state: restarted
+  when: statcert.stat.islnk is undefined and mail_use_letsencrypt
+
+- name: allow web
+  become: yes
+  ufw:
+    rule: allow
+    to_port: "{{item}}"
+    proto: tcp
+    to_ip: any
+    from_ip: any
+  notify: reload ufw
+  loop:
+    - "80"
+    - "443"
+  tags:
+    - ufw
+
+- meta: flush_handlers
+
+- name: get letsencrypt certs is they do not exist
+  become: true
+  shell: "certbot certonly --webroot -w /var/www/html --preferred-challenges http --agree-tos --email {{ admin_email }} {% for site in mailserver_sites %}-d {{ site }} {% endfor %}"
+  when: statcert.stat.islnk is undefined and mail_use_letsencrypt
+
+- name: check if letsencrypt certs have been generated [2]
+  become: true
+  stat:
+    path: "/etc/letsencrypt/live/{{ mailserver_sites.0 }}/fullchain.pem"
+  register: statcert
+  when: mail_use_letsencrypt
+
+- name: install mailserver nginx site config
+  become: true
+  template:
+    src: nginx/email_site.j2
+    dest: /etc/nginx/sites-available/mailserver
+    owner: root
+    group: root
+    mode: '0644'
+  when: mail_use_letsencrypt
+  notify:
+    - reload nginx
+
+- name: create blank index.html
+  become: true
+  file:
+    path: "{{ mailserver_nginx_root }}/public/index.html"
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: cron certbot renew
+  become: true
+  cron:
+    name: "renew mailserver cert"
+    state: present
+    user: root
+    minute: "15"
+    hour: "19"
+    weekday: "0"
+    job: "/usr/bin/certbot renew --renew-hook \"/usr/bin/systemctl reload nginx ; /usr/bin/systemctl reload dovecot ; /usr/bin/systemctl reload postfix\""
+  when: mail_use_letsencrypt
+  tags:
+    - cron
+
+- name: cron reload nginx [if certbot hook does not work]
+  become: true
+  cron:
+    name: "reload mailserver systems"
+    state: present
+    user: root
+    hour: "23"
+    minute: "30"
+    weekday: "0"
+    job: "\"/usr/bin/systemctl reload nginx ; /usr/bin/systemctl reload dovecot ; /usr/bin/systemctl reload postfix\""
+  when: mail_use_letsencrypt
+  tags:
+    - cron

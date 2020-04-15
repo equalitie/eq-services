@@ -1,0 +1,32 @@
+---
+icinga_user: nagios
+icinga_group: nagios
+icinga_lib_dir: /usr/lib
+icinga_conf_dir: /etc/icinga2
+icinga_apt_key: "https://packages.icinga.com/icinga.key"
+icinga_apt_url: "deb http://packages.icinga.com/{{ ansible_distribution|lower }} icinga-{{ ansible_distribution_release }} main"
+
+icinga_include_plugins:
+  - "itl"
+  - "plugins"
+  - "plugins-contrib"
+icinga_default_constants:
+  NodeName: "{{ ansible_fqdn }}"
+  TicketSalt: ""
+  PluginDir: "{{ icinga_lib_dir }}/nagios/plugins"
+  ManubulonPluginDir: "{{ icinga_lib_dir }}/nagios/plugins"
+  PluginContribDir: "{{ icinga_lib_dir }}/nagios/plugins"
+
+icinga_enabled_features:
+  - mainlog
+  - command
+  - api
+
+icinga_custom_constants: {}
+
+icinga_features_available_dir: "{{ icinga_conf_dir }}/features-available"
+icinga_features_enabled_dir: "{{ icinga_conf_dir }}/features-enabled"
+icinga_constants: "{{ icinga_default_constants | combine(icinga_custom_constants) }}"
+
+check_tcptraffic_url: "https://raw.githubusercontent.com/matteocorti/check_tcptraffic/master/check_tcptraffic"
+check_tcptraffic_sum: "sha1:657fc823a48b4f3ceb8567be380e2e7b9803bf4b"

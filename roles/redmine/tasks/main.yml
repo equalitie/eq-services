@@ -1,0 +1,270 @@
+---
+- fail:
+    msg: 'redmine install must be on Debian 10 or above'
+  when: ansible_distribution != 'Debian' or ansible_distribution_version < '10'
+
+- name: add Phusionpassenger repository key
+  become: true
+  apt_key:
+    keyserver: "{{ passenger_key_server }}"
+    id: "{{ passenger_key }}"
+    state: present
+
+- name: add Phusionpassenger repository
+  become: true
+  apt_repository:
+    repo: "{{ passenger_rep }}"
+    state: present
+
+# nginx role should already be installed
+
+- name: add redmine prerequisites
+  become: true
+  apt:
+    name:
+      - subversion
+      - ruby-full
+      - bundler
+      - gem
+      - build-essential
+      - libmariadbclient-dev
+      - imagemagick 
+      - libmagickwand-dev
+      - curl
+      - ruby-dev
+      - libxslt-dev
+      - libxml2-dev
+      - zlib1g-dev
+      - libnginx-mod-http-passenger
+      - git-core
+    state: present
+
+- name: add postgresql related 
+  become: true
+  apt:
+    name:
+      - postgresql
+      - libpq-dev
+      - python-psycopg2
+    state: present
+
+- name: get redmine from subversion
+  become: true
+  subversion:
+    repo: "{{ redmine_subversion}}"
+    dest: "{{ redmine_root }}"
+    checkout: yes
+  register: redmine_subversion
+
+- name: create redmine group 
+  become: true
+  group:
+    name: "{{ redmine_group }}"
+    state: present
+
+- name: create redmine user
+  become: true
+  user:
+    name: "{{ redmine_user }}"
+    group: "{{ redmine_group }}"
+    shell: '/bin/false'
+    home: "{{ redmine_root }}"
+    comment: 'Redmine Project Management'
+    state: present
+
+- name: fix permissions to do installs
+  become: true
+  file:
+    path: "{{ redmine_root }}"
+    owner: "{{ redmine_user }}"
+    recurse: yes
+
+- name: install postgresql config files
+  become: true
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/postgresql/{{ postgresql_version }}/{{ item }}"
+    owner: root
+    group: postgres
+    mode: '0660'
+  notify:
+    - 'postgresql reload'
+  loop:
+    - postgresql.conf
+    - pg_hba.conf
+
+- meta: flush_handlers
+
+- name: create postgresql user
+  become: true
+  become_user: postgres
+  postgresql_user:
+    name: "{{ postgresql_redmine_user }}"
+    role_attr_flags: 'CREATEDB,LOGIN'
+    login_user: postgres
+    encrypted: true
+    password: "{{ postgresql_redmine_user_pass }}"
+    state: present
+
+- name: create postgresql database
+  become: true
+  become_user: postgres
+  postgresql_db:
+    name: "{{ postgresql_redmine_db }}"
+    encoding: UTF-8
+    owner: "{{ postgresql_redmine_user }}"
+    state: present
+  register: new_database
+
+- name: install redmine config from template
+  become: true
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ redmine_root }}/config/{{ item }}"
+    owner: "{{ redmine_user }}"
+    group: "{{ redmine_group }}"
+    mode: '0660'
+  notify:
+    - 'nginx restart'
+  loop:
+    - configuration.yml
+    - database.yml
+
+- name: run redmine bundle install
+  become: true
+  become_user: "{{ redmine_user }}"
+  command: "bundle install --without development test --path vendor/bundle"
+  args:
+    chdir: "{{ redmine_root }}"
+    creates: "{{ redmine_root }}/.bundle"
+  register: bundle_install
+
+- name: run redmine bundle update
+  become: true
+  become_user: "{{ redmine_user }}"
+  command: "bundle update"
+  args:
+    chdir: "{{ redmine_root }}"
+  when: "'skipped' in bundle_install.stdout"
+
+- name: run redmine bundle generate_secret_token [only do this once]
+  become: true
+  become_user: "{{ redmine_user }}"
+  command: "bundle exec rake generate_secret_token"
+  args:
+    chdir: "{{ redmine_root }}"
+    creates: "{{ redmine_root }}/config/initializers/secret_token.rb"
+
+- name: prepare redmine database
+  become: true
+  become_user: "{{ redmine_user }}"
+  shell: 'RAILS_ENV=production bundle exec rake db:migrate'
+  args:
+    chdir: "{{ redmine_root }}"
+  when: redmine_subversion is defined and redmine_subversion.changed
+
+- name: prepare redmine database defaults
+  become: true
+  become_user: "{{ redmine_user }}"
+  shell: "RAILS_ENV=production REDMINE_LANG={{ redmine_default_lang }} bundle exec rake redmine:load_default_data"
+  args:
+    chdir: "{{ redmine_root }}"
+  when: new_database is defined and new_database.changed
+
+- name: check if letsencrypt certs have been generated
+  become: true
+  stat:
+    path: "/etc/letsencrypt/live/{{ redmine_sites.0 }}/fullchain.pem"
+  register: statcert
+ 
+- name: install redmine nginx site config
+  become: true
+  template:
+    src: redmine.config.j2
+    dest: /etc/nginx/sites-available/redmine.config
+    owner: root
+    group: root
+    mode: '0666'
+  notify:
+    - 'nginx reload'
+
+- name: sysmlink redmine site config in sites-enabled
+  become: true
+  file:
+    src: /etc/nginx/sites-available/redmine.config
+    dest: /etc/nginx/sites-enabled/redmine.config
+    owner: root
+    group: root
+    state: link
+  notify:
+    - 'nginx reload'
+
+- name: restart nginx if no letsencrypt certs
+  become: true
+  systemd:
+    name: nginx
+    state: restarted
+  when: statcert.stat.islnk is undefined
+
+- name: get letsencrypt certs is they do not exist
+  become: true
+  shell: "certbot certonly --webroot -w /var/www/html --preferred-challenges http --agree-tos --email {{admin_email}} {% for site in redmine_sites %}-d {{ site }} {% endfor %}"
+  when: statcert.stat.islnk is undefined
+
+- name: check if letsencrypt certs have been generated [2]
+  become: true
+  stat:
+    path: "/etc/letsencrypt/live/{{ redmine_sites.0 }}/fullchain.pem"
+  register: statcert
+
+- name: install redmine nginx site config
+  become: true
+  template:
+    src: redmine.config.j2
+    dest: /etc/nginx/sites-available/redmine.config
+    owner: root
+    group: root
+    mode: '0666'
+  notify:
+    - 'nginx reload'
+
+- name: cron certbot renew
+  become: true
+  cron:
+    name: "renew redmine cert"
+    state: present
+    user: root
+    minute: "15"
+    hour: "19"
+    weekday: "0"
+    job: "/usr/bin/certbot renew --renew-hook \"systemctl restart nginx\""
+  tags:
+    - cron
+
+- name: cron reload nginx [if certbot hook does not work]
+  become: true
+  cron:
+    name: "reload nginx"
+    state: present
+    user: root
+    hour: "23"
+    minute: "30"
+    weekday: "0"
+    job: "\"systemctl reload nginx\""
+  tags:
+    - cron
+
+- include_tasks: sb_redmine_2fa.yml
+  when: sb_redmine_2fa is defined and sb_redmine_2fa == true
+
+- include_tasks: wiki_improvements.yml
+  when: wiki_improvements is defined and wiki_improvements == true
+
+- include_tasks: redmine_messenger.yml
+  when: redmine_messenger is defined and redmine_messenger == true
+
+- include_tasks: redmine_wktime.yml
+  when: redmine_wktime is defined and redmine_wktime == true
+
+- include_tasks: install_local.yml
+  when: redmine_local_install is defined and redmine_local_install is iterable

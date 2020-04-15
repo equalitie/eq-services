@@ -1,0 +1,15 @@
+# {{ansible_managed}}
+
+#postmaster_address = postmaster
+quota_full_tempfail = yes
+rejection_reason = Your message to <%t> was automatically rejected:%n%r
+recipient_delimiter = +
+lda_original_recipient_header = X-Original-To
+lda_mailbox_autocreate = yes
+lda_mailbox_autosubscribe = no
+
+protocol lda {
+  # Space separated list of plugins to load (default is global mail_plugins).
+  #mail_plugins = $mail_plugins
+  mail_plugins = $mail_plugins sieve
+}

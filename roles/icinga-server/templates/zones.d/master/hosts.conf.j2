@@ -1,0 +1,29 @@
+// {{ansible_managed}}
+
+// This will be for master host
+
+object Host NodeName {
+  import "generic-host"
+
+  address = "127.0.0.1"
+  address6 = "::1"
+  vars.os = "Linux"
+
+  vars.http_vhosts["http"] = {
+    http_uri = "/"
+  }
+
+  vars.http_vhosts["Icinga Web 2"] = {
+    http_vhost = "{{icinga_web_domain}}"
+    http_ssl = 1
+    http_uri = "/icingaweb2"
+  }
+
+  vars.disks["disk /"] = {
+    disk_partitions = "/"
+  }
+
+  vars.notification["mail"] = {
+    groups = [ "icingaadmins" ]
+  }
+}

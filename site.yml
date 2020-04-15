@@ -1,0 +1,130 @@
+---
+- hosts: all
+  #serial: 25% 
+  gather_facts: true
+  become: true
+
+  roles:
+    - common
+    - hardening
+
+- hosts: cityhall
+  gather_facts: false
+
+  roles:
+    - ansible
+    - setup
+    - smtp
+    - tls-certs
+
+- hosts: bind_service 
+  gather_facts: true
+  vars_files:
+    - config/zones.yml 
+
+  roles:
+    - {role: bind-service, tags: bind}
+
+- hosts: docker_service
+  gather_facts: true
+
+  roles:
+    - {role: docker-service, tags: docker}
+
+- hosts: backup_controller
+  gather_facts: true
+
+  roles:
+    - {role: backup, tags: backup}
+
+- hosts: deflect_controller
+  gather_facts: true
+
+  roles:
+    - {role: nginx, tags: nginx}
+    - {role: php-fpm, tags: php}
+    - {role: docker-service, tags: docker}
+    - {role: deflect, tags: deflect}
+    - {role: smtp}
+
+- hosts: letsencrypt_server
+  gather_facts: true
+  vars:
+    skip_nginx_tls: false
+
+  tags:
+    - letsencrypt-proxy
+
+  roles:
+    - {role: nginx}
+    - {role: letsencrypt-proxy}
+
+- hosts: icinga_server
+  gather_facts: true
+
+  roles:
+    - {role: php-fpm}
+    - {role: nginx}
+    - {role: icinga-server}
+    - {role: smtp}
+
+- hosts: icinga_hosts
+  gather_facts: true
+
+  roles:
+    - {role: monitoring}
+
+- hosts: app_service
+  gather_facts: true
+
+  roles:
+    - {role: php-fpm}
+    - {role: nginx}
+    - {role: smtp}
+    - {role: mysql-server}
+
+- hosts: ldap_server
+  gather_facts: true
+
+  roles:
+    - {role: ldap}
+    - {role: slapd-config}
+
+- hosts: redmine_server
+  gather_facts: true
+
+  roles:
+    - {role: nginx}
+    - {role: smtp}
+    - {role: redmine}
+
+- hosts: mumble_server
+  gather_facts: false
+
+  roles:
+    - {role: mumble}
+
+- hosts: mattermost_server
+  gather_facts: true
+
+  roles:
+    - {role: nginx}
+    - {role: smtp}
+    - {role: mattermost}
+
+- hosts: mail_service
+  gather_facts: true
+
+  roles:
+    - {role: nginx}
+    - {role: email-service}
+
+
+# Run user-management last when all systems are setup
+# This is not meant to setup system users. System users
+# should be setup in provisioning.
+- hosts: all
+  gather_facts: true
+
+  roles:
+    - user-management

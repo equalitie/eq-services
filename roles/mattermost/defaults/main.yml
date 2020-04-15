@@ -1,0 +1,7 @@
+---
+mattermost_version: 5.21.0
+mattermost_team_download_url: "https://releases.mattermost.com/{{ mattermost_version }}/mattermost-team-{{ mattermost_version }}-linux-amd64.tar.gz"
+mattermost_enterprise_download_url: "https://releases.mattermost.com/{{ mattermost_version }}/mattermost-{{ mattermost_version }}-linux-amd64.tar.gz"
+mattermost_database_url: "postgres://mmuser:{{ mattermost_postgresql_password }}@localhost/mattermost?sslmode=disable&connect_timeout=10"
+mattermost_enterprise: false
+mattermost_use_letsencrypt: false

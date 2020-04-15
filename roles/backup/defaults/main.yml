@@ -1,0 +1,5 @@
+---
+# defaults file for backup
+
+eqbackup_repo: 'https://github.com/equalitie/eqbackup.git'
+eqbackup_version: 'HEAD' 

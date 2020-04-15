@@ -1,0 +1,80 @@
+---
+{% raw %}
+# This can be used to prefix files in config/email/{{email_prefix}}file
+# email_prefix: 'myotherserver-'
+# Note: We can not deliver to /root/ home directory because
+# delivery is restricted.
+#
+# See additional variables in roles/email-service/defaults/main.yml
+#
+# You can also add local files to your to your config via files
+# - config/email/postfix_aliases
+# - config/email/postfix_transport
+# - config/email/postfix_virtusertable
+{% endraw %}
+
+# This is who gets root and many other system emails.
+root_emails:
+{% for e in root_emails.split() %}
+  - {{ e }}
+{% endfor %}
+
+# One name per domain. This is not "necessarily"
+# a fully qualilified domain name. It will be read as
+# - selector.mail.tld
+# 'mail.tld', 'selector' -- for domain 'mail.tld'
+# you must have at least one
+# You can see the public keys that need to be added to your
+# DNS name server https://yoursite.tld/dkim.txt
+#dkim_domains:
+#  - mail.mail.domain.tld
+#  - mail.domain.tld
+#  - mail.lists.domain.tld
+
+# this should have at least the mail server fqdn
+local_domains:
+{% for d in local_domains.split() %}
+  - {{ d }}
+{% endfor %}
+
+postfix_virtual_alias_domains:
+{% for virtd in postfix_virtual_alias_domains.split() %}
+  - {{ virtd }}
+{% endfor %}
+
+# add any extra ips here for postix mynetworks
+postfix_mynetworks:
+  - {% raw %}"{{ ansible_default_ipv4.address }}/32"
+{% endraw %}
+
+#postfix_relay_domains:
+#  - someotherdomain.tld
+
+{% if mail_use_letsencrypt == 'true' or mail_use_letsencrypt == 'yes' or
+mail_use_letsencrypt == 'y' %}
+mail_use_letsencrypt: true
+{% else %}
+mail_use_letsencrypt: false
+{% endif %}
+
+{% if enable_mailman == 'true' or enable_mailman == 'yes' or
+enable_mailman == 'y' %}
+enable_mailman: true
+{% else %}
+enable_mailman: false
+{% endif %}
+mailman_domain: '{{ mailman_domain }}'
+mailman_admin_email: '{{ mailman_admin_email }}'
+mailman_admin_password: '{{ mailman_admin_password }}'
+
+# Order matters. If using letsencrypt, this is also the list of
+# generated names on cert. Make sure they resolve.
+# There are website that your mail server will answer to and, if
+# using letsencrypt, the cert names generated.
+mailserver_sites:
+  - "{% raw %}{{ inventory_hostname }}{% endraw %}"
+  - "{% raw %}{{ mailman_domain }}{% endraw %}"
+
+
+# set to true if you need to open ssh firewall
+allow_all_ssh: false

@@ -1,0 +1,5 @@
+---
+- name: reload ufw
+  become: yes
+  ufw:
+    state: reloaded

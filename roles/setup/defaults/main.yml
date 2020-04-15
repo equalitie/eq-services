@@ -1,0 +1,3 @@
+---
+php_version: "7.0"
+deflect_controller_root: "/opt/deflect"

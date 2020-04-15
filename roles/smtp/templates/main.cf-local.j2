@@ -1,0 +1,18 @@
+{% if (ansible_distribution is defined and ansible_distribution_version is defined) and
+(ansible_distribution == 'Debian' and ansible_distribution_version >= '10') %}
+compatibility_level = 2
+alias_maps = hash:/etc/aliases
+{% endif %}
+myhostname = {{ inventory_hostname }}
+mydomain = {{ inventory_hostname }}
+myorigin = $mydomain
+inet_interfaces = loopback-only
+header_size_limit = 4096000
+smtp_use_tls = yes
+smtp_sasl_auth_enable = yes
+smtp_sasl_security_options = noanonymous
+smtp_tls_security_level = may
+smtp_tls_mandatory_protocols=!SSLv2,!SSLv3
+smtpd_tls_mandatory_protocols=!SSLv2,!SSLv3
+smtp_sasl_password_maps = static:{{ smtp_email_user }}:{{ smtp_email_passwd }}
+relayhost = [{{smtp_server}}]:{{smtp_port}}

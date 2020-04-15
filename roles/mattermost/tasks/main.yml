@@ -1,0 +1,241 @@
+---
+- fail:
+    msg: 'MatterMost install must be on Debian 10 or above'
+  when: ansible_distribution != 'Debian' or ansible_distribution_version < '10'
+
+- name: install prereq for mattermost
+  become: true
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python-psycopg2
+    state: present
+
+- name: install certbot if we are using letsencrypt
+  become: true
+  apt:
+    name: certbot
+    state: present
+  when: mattermost_use_letsencrypt
+
+- name: create postgresql database user
+  become: true
+  become_user: postgres
+  postgresql_user:
+    name: mmuser
+    password: "{{ mattermost_postgresql_password }}"
+    role_attr_flags: CREATEDB,NOSUPERUSER,LOGIN
+
+- name: create postgresql database
+  become: true
+  become_user: postgres
+  postgresql_db:
+    name: mattermost
+    encoding: UTF-8
+    state: present
+    owner: mmuser
+
+- name: create mattermost group
+  become: true
+  group:
+    name: mattermost
+    system: yes
+
+- name: create mattermost user
+  become: true
+  user:
+    name: mattermost
+    group: mattermost
+    createhome: no
+    system: yes
+
+- name: create directories
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: mattermost
+    group: mattermost
+  loop:
+    - /var/lib/mattermost
+    - /var/lib/mattermost/data
+    - /var/lib/mattermost/plugins
+    - /var/lib/mattermost/client
+    - /var/lib/mattermost/client/plugins
+    - /var/log/mattermost
+
+- name: create database backup directory
+  become: true
+  file:
+    path: /var/lib/mattermost/db-backup
+    state: directory
+    owner: mattermost
+    group: postgres
+    mode: '0770'
+
+- name: create config files first time
+  become: true
+  template:
+    src: "{{ item }}.j2"
+    dest: "/var/lib/mattermost/{{ item }}"
+    owner: mattermost
+    group: mattermost
+    force: no
+  loop:
+    - config.json
+
+- name: create Mattermost systemd service file
+  become: true
+  template:
+    src: mattermost.service.j2
+    dest: /etc/systemd/system/mattermost.service
+  register: mmsystemd
+  notify:
+    - 'enable mattermost'
+    - 'restart mattermost'
+
+- name: reload systemd daemon
+  become: true
+  systemd:
+    daemon_reload: true
+  when: mmsystemd is defined and mmsystemd.changed
+
+- name: check whether previous installation was completed
+  become: true
+  stat:
+    path: "/var/lib/mattermost/.ansible_installed"
+  register: mattermost_installation_complete
+
+- name: set vars if we are installing mattermost entreprise version
+  set_fact:
+    mattermost_download_url: "{{ mattermost_enterprise_download_url }}"
+    mattermost_version_string: "{{ mattermost_version }} enterprise"
+  when: mattermost_enterprise
+
+- name: set vars if we are installing mattermost team version
+  set_fact:
+    mattermost_download_url: "{{ mattermost_team_download_url }}"
+    mattermost_version_string: "{{ mattermost_version }} team"
+  when: not mattermost_enterprise
+
+- name: check installed version of Mattermost
+  become: true
+  copy:
+    dest: "/var/lib/mattermost/version"
+    content: "{{ mattermost_version_string }}"
+    owner: mattermost
+    group: mattermost
+  register: mattermost_version_reg
+
+- name: install new version of Mattermost
+  become: true
+  when: mattermost_version_reg.changed or not mattermost_installation_complete.stat.exists
+  block:
+
+    - name: backup database if we are doing version change [just in case]
+      become: true
+      become_user: postgres
+      postgresql_db:
+        name: mattermost
+        state: dump
+        target: "/var/lib/mattermost/db-backup/postgresql-mattermost-{{ ansible_date_time.iso8601 }}.sql.gz"
+      when: mattermost_version_reg.changed
+
+    - name: mark Mattermost installation as incomplete
+      become: true
+      file:
+        path: "/var/lib/mattermost/.ansible_installed"
+        state: absent
+
+    - name: download Mattermost distribution tarball
+      become: true
+      get_url:
+        url: "{{ mattermost_download_url }}"
+        dest: "/tmp/{{ mattermost_download_url | basename }}"
+
+    - name: stop Mattermost service (if it is already running)
+      become: true
+      service:
+        name: mattermost
+        state: stopped
+
+    - name: remove Mattermost installation directory
+      become: true
+      file:
+        path: /opt/mattermost
+        state: absent
+
+    # This will be in /opt/mattermost
+    - name: unpack Mattermost distribution tarball
+      become: true
+      unarchive:
+        src: "/tmp/{{ mattermost_download_url | basename }}"
+        remote_src: yes
+        dest: /opt/
+        owner: mattermost
+        group: mattermost
+
+    - name: create symlink to config file
+      become: true
+      file:
+        src: /var/lib/mattermost/config.json
+        dest: /opt/mattermost/config/config.json
+        state: link
+        force: yes
+
+    - name: create symlink plugins directory
+      become: true
+      file:
+        src: /var/lib/mattermost/plugins
+        dest: /opt/mattermost/plugins
+        state: link
+        owner: mattermost
+        group: mattermost
+
+    - name: create symlink client/plugins directory
+      become: true
+      file:
+        src: /var/lib/mattermost/client/plugins
+        dest: /opt/mattermost/client/plugins
+        state: link
+        owner: mattermost
+        group: mattermost
+
+    - name: start Mattermost service
+      become: true
+      service:
+        name: mattermost
+        state: started
+        enabled: yes
+
+    - name: mark Mattermost installation as complete
+      become: true
+      file:
+        path: /var/lib/mattermost/.ansible_installed
+        state: touch
+        owner: mattermost
+        group: mattermost
+
+# End block
+
+- name: allow web
+  become: yes
+  ufw:
+    rule: allow
+    to_port: "{{item}}"
+    proto: tcp
+    to_ip: any
+    from_ip: any
+  notify: reload ufw
+  loop:
+    - "80"
+    - "443"
+  tags:
+    - ufw
+
+- include_tasks: web.yml
+
+- debug:
+    msg: "Install enterprise license from cli. mattermost license upload {license}"
+  when: mattermost_enterprise

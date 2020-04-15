@@ -1,0 +1,40 @@
+---
+- name: install needed packages
+  become: yes
+  apt:
+    name:
+      - dirmngr
+  tags:
+    - apt
+    - ansible_install
+
+- name: add ansible apt key
+  become: yes
+  apt_key:
+    keyserver: "{{ansible_deb_key_server}}"
+    id: "{{ansible_deb_key}}"
+    state: present
+  tags:
+    - apt
+    - ansible_install
+
+- name: add ansible repo
+  become: yes
+  apt_repository:
+    repo: "deb {{ansible_deb_url_ppa}} {{ansible_deb_dist_ppa}} main"
+    state: present
+    filename: 'ansible'
+  tags:
+    - apt
+    - ansible_install
+
+- name: install ansible
+  become: yes
+  apt:
+    name: ansible
+    update_cache: true
+    state: latest
+  tags:
+    - apt
+    - ansible_install
+

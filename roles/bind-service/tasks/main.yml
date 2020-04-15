@@ -1,0 +1,146 @@
+---
+# tasks file for bind_standalone
+
+- name: Update APT Cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 86400
+  become: true
+  tags:
+    - apt
+
+- name: Packages for Bind Server
+  apt:
+    name:
+      - bind9
+      - dnsutils
+      - bind9utils
+      - bind9-doc
+      - whois
+      - resolvconf
+    state: present 
+  become: true
+  tags:
+    - apt
+
+- name: create "{{zone_files_path}}" directory
+  file:
+    path: "{{zone_files_path}}"
+    state: directory
+    owner: root
+    group: bind 
+    mode: 'u=rwx,g=rwx,o=rx'
+  become: true
+
+- name: create "{{zone_files_path}}" directories
+  file:
+    path: "{{zone_files_path}}/{{item}}"
+    state: directory
+    owner: root
+    group: bind
+    mode: 'u=rwx,g=rwx,o=rx'
+  become: true
+  with_items:
+    - master
+    - slave
+
+- name: create "{{zone_files_path}}" directories for edgemanage
+  file:
+    path: "{{zone_files_path}}/{{item}}"
+    state: directory
+    owner: root
+    group: bind
+    mode: 'u=rwx,g=rwx,o=rx'
+  become: true
+  with_items:
+    - edgemanage
+  when: enable_edgemanage is defined and enable_edgemanage
+
+- name: touch zone def for edgemanage
+  file:
+    path: /etc/bind/named.conf.local.edgemanage
+    state: touch
+    owner: root
+    group: root
+    mode: 'u=rw,g=r,o=r'
+  become: true
+  when: enable_edgemanage is defined and enable_edgemanage
+
+- name: bind9 defaults file. Does not seem to be used but install anyway
+  template:
+    src: "bind9.j2"
+    dest: "/etc/default/bind9"
+    owner: root
+    group: root
+    mode: 'u=rw,g=r,o=r'
+  become: true
+  notify:
+    - "Restart Service 'bind9'"
+
+- name: bind9 systemd conf file
+  template:
+    src: "bind9.service.j2"
+    dest: "/lib/systemd/system/bind9.service"
+    owner: root
+    group: root
+    mode: 'u=rw,g=r,o=r'
+  become: true
+  notify:
+    - "Restart Service 'bind9'"
+
+- name: Configure Bind
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/bind/{{ item }}"
+    owner: root
+    group: root
+    mode: 'u=rw,g=r,o=r'
+  with_items:
+    - named.conf.local
+    - named.conf.options
+  become: true
+  notify:
+    - "Restart Service 'bind9'"
+
+- name: Configure Zones Vars
+  include_vars:
+    file: "config/zones/{{ item.name }}.yml"
+    name: config
+  with_items:
+    - "{{ zones }}"
+  become: true
+  notify:
+    - "Reload Service 'bind9'"
+
+#- name: Debug
+#  debug:
+#    msg: "{{ config }}"
+#  with_items:
+#    - "{{ zones }}"
+
+#- name: debug zones
+#  debug:
+#    msg: "{{ item }}"
+#  with_items:
+#    - "{{zones}}"
+
+- name: Configure Zones
+  template:
+    src: "{{ item.template_source | default('db.default.j2') }}"
+    dest: "{{ zone_files_path }}/master/db.{{ item.name }}"
+    owner: root
+    group: root
+    mode: 'u=rw,g=r,o=r'
+  when: bind_type is defined and bind_type == 'master' 
+  with_items:
+    - "{{ zones }}"
+  become: true
+  notify:
+    - "Restart Service 'bind9'"
+
+- name: Ensure Service 'bind9' Is Running
+  service:
+    name: bind9
+    state: started
+    enabled: yes
+  become: true

@@ -1,0 +1,37 @@
+---
+- name: postgresql restart
+  become: true
+  systemd:
+    name: postgresql
+    state: restarted
+
+- name: postgresql reload
+  become: true
+  systemd:
+    name: postgresql
+    state: reloaded
+
+- name: plugins migrate
+  become: true
+  become_user: "{{ redmine_user }}"
+  shell: "{{ item }}"
+  args:
+    chdir: "{{ redmine_root }}"
+  loop:
+    - 'bundle'
+    - 'bundle exec rake redmine:plugins:migrate RAILS_ENV=production'
+
+- name: nginx restart
+  become: true
+  systemd:
+    name: nginx
+    state: restarted
+
+- name: nginx reload
+  become: true
+  systemd:
+    name: nginx
+    state: reloaded
+
+- name: noop
+  command: echo

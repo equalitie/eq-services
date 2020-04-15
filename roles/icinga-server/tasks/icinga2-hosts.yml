@@ -1,0 +1,165 @@
+---
+
+- name: create custom directories in conf.d
+  file:
+    path: "{{icinga_conf_dir}}/conf.d/{{item}}"
+    state: directory
+    owner: root
+    group: "{{icinga_group}}"
+    mode: '0750'
+  become: yes
+  loop:
+    - api-users.d
+
+- name: create monitored host certs and sign
+  shell: cd /var/lib/icinga2/certs && icinga2 pki new-cert --cn {{item}} --csr {{item}}.csr --key {{item}}.key && icinga2 pki sign-csr --csr {{item}}.csr --cert {{item}}.crt
+  args:
+    creates: "/var/lib/icinga2/certs/{{item}}.crt"
+  become: yes
+  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+  notify:
+    - reload icinga2
+
+- name: create monitored host api-users
+  template:
+    src: "conf.d/api-users.d/default-api-users.conf.js"
+    dest: "{{icinga_conf_dir}}/conf.d/api-users.d/{{item}}-api-users.conf"
+    owner: root
+    group: "{{icinga_group}}"
+    mode: '0644'
+  become: yes
+  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+  notify:
+    - reload icinga2
+
+- name: list conf.d/api-users.d .conf files
+  become: yes
+  find:
+    path: "{{icinga_conf_dir}}/conf.d/api-users.d/"
+    patterns: '*.conf'
+    file_type: any
+  register: enable_api_hosts
+
+- set_fact:
+    enabled_files_api_users: "{{ enabled_files_api_users|default([]) + [ item.path ] }}"
+  loop: "{{ enable_api_hosts.files }}"
+
+- set_fact:
+    managed_api_users: "{{ managed_api_users|default([]) + [ icinga_conf_dir + '/conf.d/api-users.d/' + item + '-api-users.conf'] }}"
+  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+
+- name: clean api-users.d directory
+  become: yes
+  file:
+    path: "{{item}}"
+    state: absent
+  loop: "{{ enabled_files_api_users | default([]) }}"
+  when:
+    - item not in managed_api_users
+  notify:
+    - reload icinga2
+
+- name: create remote hosts zones.d directories
+  file:
+    path: "{{icinga_conf_dir}}/zones.d/{{item}}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+  notify:
+    - reload icinga2
+
+- name: remove old hosts files
+  become: yes
+  file:
+    path: "{{icinga_conf_dir}}/zones.d/master/{{item}}-hosts.conf"
+    state: absent
+  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+  notify:
+    - reload icinga2
+
+- name: install remote hosts conf
+  template:
+    src: zones.d/remote-hosts.conf.j2
+    dest: "{{icinga_conf_dir}}/zones.d/master/remote-hosts.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify:
+    - reload icinga2
+
+- name: create local config/icinga_certs
+  local_action:
+    module: file
+    path: config/icinga_certs
+    state: directory
+    mode: '0700'
+  run_once: yes
+
+- name: fetch ca.crt
+  become: yes
+  fetch:
+    src: /var/lib/icinga2/certs/ca.crt
+    dest: config/icinga_certs/ca.crt
+    flat: yes
+  run_once: yes
+
+- name: fetch the host certs
+  become: yes
+  fetch:
+    src: "/var/lib/icinga2/certs/{{item}}.crt"
+    dest: "config/icinga_certs/{{item}}.crt"
+    flat: yes
+  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+  run_once: yes
+
+- name: fetch the host keys
+  become: yes
+  fetch:
+    src: "/var/lib/icinga2/certs/{{item}}.key"
+    dest: "config/icinga_certs/{{item}}.key"
+    flat: yes
+  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+  run_once: yes
+
+#- name: install hosts files
+#  template:
+#    src: conf.d/hosts.d/hosts.conf.j2
+#    dest: "{{icinga_conf_dir}}/conf.d/hosts.d/{{item}}.conf"
+#    owner: root
+#    group: root
+#    mode: '0644'
+#  become: yes
+#  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+#  notify:
+#    - reload icinga2
+#
+#- name: list conf.d/hosts.d .conf files
+#  become: yes
+#  find:
+#    path: "{{icinga_conf_dir}}/conf.d/hosts.d/"
+#    patterns: '*.conf'
+#    file_type: any
+#  register: enable_hosts
+#
+#- set_fact:
+#    enabled_files_hosts: "{{ enabled_files_hosts | default([]) + [ item.path ] }}"
+#  loop: "{{ enable_hosts.files }}"
+#
+#- set_fact:
+#    managed_hosts: "{{ managed_hosts|default([]) + [ icinga_conf_dir + '/conf.d/hosts.d/' + item + '.conf'] }}"
+#  loop: "{{groups['icinga_hosts'] | union(groups['edges'])}}"
+#
+#- name: clean hosts.d directory
+#  become: yes
+#  file:
+#    path: "{{item}}"
+#    state: absent
+#  loop: "{{ enabled_files_hosts | default([]) }}"
+#  when:
+#    - item not in managed_hosts
+#  notify:
+#    - reload icinga2

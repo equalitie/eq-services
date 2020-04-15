@@ -1,0 +1,9 @@
+---
+# tasks file for backup
+
+- name: pull in eqbackup from git
+  git:
+    repo: "{{eqbackup_repo}}"
+    dest: "/opt/eqbackup"
+    version: "{{eqbackup_version}}"
+  become: true

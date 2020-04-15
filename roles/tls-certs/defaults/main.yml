@@ -1,0 +1,2 @@
+---
+tls_certs_root: '/opt/certs-admin'

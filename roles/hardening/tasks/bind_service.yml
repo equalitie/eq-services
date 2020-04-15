@@ -1,0 +1,16 @@
+---
+# We should only be here if
+# when: inventory_hostname in groups.bind_service
+
+- name: allow all udp/tcp for bind 
+  become: yes
+  ufw:
+    rule: allow
+    proto: "{{item}}" 
+    to_port: "53"
+  notify: reload ufw
+  tags:
+    - ufw
+  loop:
+    - tcp 
+    - udp

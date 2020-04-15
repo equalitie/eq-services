@@ -1,0 +1,90 @@
+---
+# mattermost_use_letsencrypt
+
+- name: check if letsencrypt certs have been generated
+  become: true
+  stat:
+    path: "/etc/letsencrypt/live/{{ mattermost_sites.0 }}/fullchain.pem"
+  register: statcert
+  when: mattermost_use_letsencrypt
+
+- name: install mattermost nginx site config
+  become: true
+  template:
+    src: mattermost-nginx.j2
+    dest: /etc/nginx/sites-available/mattermost
+    owner: root
+    group: root
+    mode: '0666'
+  notify:
+    - 'reload nginx'
+
+- name: sysmlink mattermost site config in sites-enabled
+  become: true
+  file:
+    src: /etc/nginx/sites-available/mattermost
+    dest: /etc/nginx/sites-enabled/mattermost
+    owner: root
+    group: root
+    state: link
+  notify:
+    - 'reload nginx'
+
+- name: restart nginx if no letsencrypt certs
+  become: true
+  systemd:
+    name: nginx
+    state: restarted
+  when: statcert.stat.islnk is undefined and mattermost_use_letsencrypt
+
+- name: get letsencrypt certs is they do not exist
+  become: true
+  shell: "certbot certonly --webroot -w /var/www/html --preferred-challenges http --agree-tos --email {{admin_email}} {% for site in mattermost_sites %}-d {{ site }} {% endfor %}"
+  when: statcert.stat.islnk is undefined and mattermost_use_letsencrypt
+
+- name: check if letsencrypt certs have been generated [2]
+  become: true
+  stat:
+    path: "/etc/letsencrypt/live/{{ mattermost_sites.0 }}/fullchain.pem"
+  register: statcert
+  when: mattermost_use_letsencrypt
+
+- name: install mattermost nginx site config
+  become: true
+  template:
+    src: mattermost-nginx.j2
+    dest: /etc/nginx/sites-available/mattermost
+    owner: root
+    group: root
+    mode: '0666'
+  when: mattermost_use_letsencrypt
+  notify:
+    - 'reload nginx'
+
+- name: cron certbot renew
+  become: true
+  cron:
+    name: "renew mattermost cert"
+    state: present
+    user: root
+    minute: "15"
+    hour: "19"
+    weekday: "0"
+    job: "/usr/bin/certbot renew --renew-hook \"systemctl restart nginx\""
+  when: mattermost_use_letsencrypt
+  tags:
+    - cron
+
+- name: cron reload nginx [if certbot hook does not work]
+  become: true
+  cron:
+    name: "reload nginx"
+    state: present
+    user: root
+    hour: "23"
+    minute: "30"
+    weekday: "0"
+    job: "\"systemctl reload nginx\""
+  when: mattermost_use_letsencrypt
+  tags:
+    - cron

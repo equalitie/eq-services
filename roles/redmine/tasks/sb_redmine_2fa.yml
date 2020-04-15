@@ -1,0 +1,32 @@
+---
+# This installs https://github.com/southbridgeio/redmine_2fa.git
+#
+- name: install prereq
+  become: true
+  apt:
+    name:
+      - libcurl4-openssl-dev
+      - redis
+    state: present
+
+- name: install redmine_bots
+  become: true
+  become_user: "{{ redmine_user }}"
+  git:
+    repo: "{{ redmine_bots_repo }}"
+    dest: "{{ redmine_root }}/plugins/redmine_bots"
+    version: "master"
+  notify:
+    - 'plugins migrate'
+    - 'nginx restart'
+
+- name: install redmine_2fa from git
+  become: true
+  become_user: "{{ redmine_user }}"
+  git:
+    repo: "{{ sb_redmine_2fa_repo }}"
+    dest: "{{ redmine_root }}/plugins/redmine_2fa"
+    version: "master"
+  notify:
+    - 'plugins migrate'
+    - 'nginx restart'

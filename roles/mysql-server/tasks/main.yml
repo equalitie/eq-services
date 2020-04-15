@@ -1,0 +1,66 @@
+---
+
+- name: install mysql and prereq
+  become: yes
+  apt:
+    name:
+      - mysql-server
+      - python-mysqldb
+    state: present
+  tags:
+    - mysql
+
+- name: Update mysql root password for root account localhost.
+  become: yes
+  mysql_user:
+    name: root
+    host: localhost
+    password: "{{ mysql_root_db_pass }}"
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  tags:
+    - mysql
+
+- name: Copy .my.cnf file to /root/
+  become: yes
+  template:
+    src: "root_my.cnf.j2"
+    dest: /root/.my.cnf
+    mode: '0600'
+  tags:
+    - mysql
+
+- name: Update mysql root password for all root accounts.
+  become: yes
+  mysql_user:
+    name: root
+    login_host: localhost
+    host: "{{ item }}"
+    password: "{{ mysql_root_db_pass }}"
+    state: present
+  loop:
+    - 127.0.0.1
+    - ::1
+  tags:
+    - mysql
+
+- name: ensure anonymous users are not in the database
+  become: yes
+  mysql_user:
+    name: ''
+    host: "{{ item }}"
+    state: absent
+  loop:
+    - localhost
+    - 127.0.0.1
+    - ::1
+  tags:
+    - mysql
+
+- name: remove the test database
+  become: yes
+  mysql_db:
+    name: test
+    state: absent
+  tags:
+    - mysql

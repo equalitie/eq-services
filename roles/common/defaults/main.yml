@@ -1,0 +1,6 @@
+---
+# defaults file for common
+
+timezone: 'Etc/UTC'
+site_nameservers_ip: [ 8.8.8.8, 8.8.4.4, 1.1.1.1 ]
+default_getaddr_v4: True

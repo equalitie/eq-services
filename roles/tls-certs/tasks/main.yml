@@ -1,0 +1,41 @@
+---
+- name: create directories
+  become: yes
+  file:
+    path: "{{tls_certs_root}}{{item.path}}"
+    state: directory
+    mode: "{{item.mode}}"
+    owner: root
+    group: root
+  loop:
+    - {path: '', mode: '0755'}
+    - {path: '/bin', mode: '0755'}
+    - {path: '/private', mode: '0750'}
+    - {path: '/certs', mode: '0755'}
+  tags:
+    - controller_certs
+
+- name: install openssl.cnf
+  become: yes
+  template:
+    src: openssl.cnf.j2
+    dest: "{{tls_certs_root}}/openssl.cnf"
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - controller_certs
+
+
+- name: install scripts
+  become: yes
+  template:
+    src: "{{item}}.j2"
+    dest: "{{tls_certs_root}}/bin/{{item}}"
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - create_rootca
+  tags:
+    - controller_certs

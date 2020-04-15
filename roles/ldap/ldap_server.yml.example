@@ -1,0 +1,43 @@
+---
+
+slapd_conf_dir: /etc/ldap
+slapd_mdb_dir: /var/lib/slapd
+slapd_run_dir: /run/slapd
+slapd_modules_path: /usr/lib/ldap
+slapd_user: openldap
+slapd_group: openldap
+slapd_olc_dir: "{{ slapd_conf_dir }}/slapd.d"
+slapd_schema_dir: "{{ slapd_conf_dir }}/schema"
+slapd_ldapi_socket: "{{ slapd_run_dir }}/ldapi"
+slapd_olc_rootdn: cn=root,cn=config
+
+slapd_mdb_config:
+  olcSuffix: "dc=equalit,dc=ie"
+
+slapd_additional_modules:
+  - 'memberof'
+  - 'ppolicy'
+slapd_mdb_overlays:
+  memberof:
+    - objectClass: olcMemberOf
+    - olcMemberOfDangling: ignore
+  ppolicy:
+    - objectClass: 'olcPPolicyConfig'
+    - objectClass: 'olcOverlayConfig'
+    - olcPPolicyHashCleartext: "TRUE"
+
+slapd_olc_rootdn_password: temp1234567
+slapd_mdb_rootdn_password: water
+slapd_monitor_rootdn_password: water
+
+slapd_global_config:
+  olcTLSCertificateKeyFile: "{{ slapd_conf_dir }}/certs/ldap-ca-key.pem"
+  olcTLSCertificateFile: "{{ slapd_conf_dir }}/certs/ldap-ca-cert.pem"
+# apt-get install gnutls-bin
+# certtool --generate-privkey --outfile config/ldap/certs/ldap-ca-key.pem
+# certtool --generate-self-signed --load-privkey config/ldap/certs/ldap-ca-key.pem --outfile config/ldap/certs/ldap-ca-cert.pem
+
+slapd_schemas:
+  - "{{ slapd_schema_dir }}/cosine.schema"
+  - "{{ slapd_schema_dir }}/inetorgperson.schema"
+  - "{{ slapd_schema_dir }}/ppolicy.schema"

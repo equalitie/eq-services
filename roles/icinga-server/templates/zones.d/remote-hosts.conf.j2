@@ -1,0 +1,35 @@
+// {{ansible_managed}}
+{% for mhost in groups.icinga_hosts | union(groups.edges) %}
+
+object Host "{{mhost}}" {
+  check_command = "hostalive"
+  address = "{{mhost}}"
+  vars.client_endpoint = name
+// All our hosts are Linux, for now
+  vars.os = "Linux"
+{% if mhost in groups.edges %}
+  vars.edge = 1
+  vars.http_vhosts["Deflect HTTP"] = {
+    http_address = "{{mhost}}"
+    http_vhost = "{{deflect_site_domain}}"
+    http_ssl = 1
+    http_uri = "/10k"
+    http_warn_time = "2"
+    http_critical_time = "1"
+  }
+{% endif %}
+{% if mhost in groups.deflect_controller %}
+  vars.dcontroller = 1
+{% endif %}
+{% if mhost in groups.cityhall %}
+  vars.citycontroller = 1
+{% endif %}
+  vars.disks["disk /"] = {
+    disk_partitions = "/"
+  }
+  vars.notification["mail"] = {
+    groups = [ "icingaadmins" ]
+  }
+}
+{% endfor %}
+

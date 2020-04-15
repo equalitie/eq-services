@@ -1,0 +1,95 @@
+---
+- name: install Deflect edge templated scripts
+  become: yes
+  template:
+    src: "scripts/{{item}}.j2"
+    dest: "/usr/local/bin/{{item}}"
+    owner: root
+    group: staff
+    mode: '0755'
+  when: inventory_hostname in groups.edges
+  loop:
+    - "check_swabberd"
+    - "check_swabberd_running"
+    - "check_tcptraffic_local"
+    - "check_connections"
+    - "check_deflectlogmtime"
+    - "check_ats_stack_trace"
+  tags:
+    - edge_checks
+
+- name: allow "{{icinga_user}}" to run check_banjax_ban_rate
+  become: yes
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^{{icinga_user}}.*check_banjax_ban_rate$'
+    line: '{{icinga_user}} ALL=NOPASSWD: /usr/local/bin/check_banjax_ban_rate'
+    validate: 'visudo -cf %s'
+  when: inventory_hostname in groups.deflect_controller
+
+- name: allow "{{icinga_user}}" to run check_total_bans
+  become: yes
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^{{icinga_user}}.*check_total_bans$'
+    line: '{{icinga_user}} ALL=NOPASSWD: /usr/local/bin/check_total_bans'
+    validate: 'visudo -cf %s'
+  when: inventory_hostname in groups.deflect_controller
+
+- name: allow "{{icinga_user}}" to run check_log_injection
+  become: yes
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^{{icinga_user}}.*check_log_injection$'
+    line: '{{icinga_user}} ALL=NOPASSWD: /usr/local/bin/check_log_injection'
+    validate: 'visudo -cf %s'
+  when: inventory_hostname in groups.deflect_controller
+
+- name: allow "{{icinga_user}}" to run iptables
+  become: yes
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^{{icinga_user}}.*iptables$'
+    line: '{{icinga_user}} ALL=NOPASSWD: /sbin/iptables'
+    validate: 'visudo -cf %s'
+  when: inventory_hostname in groups.edges
+
+- name: allow "{{icinga_user}}" to run check_swabberd_running
+  become: yes
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^{{icinga_user}}.*check_swabberd_running$'
+    line: '{{icinga_user}} ALL=NOPASSWD: /usr/local/bin/check_swabberd_running'
+    validate: 'visudo -cf %s'
+  when: inventory_hostname in groups.edges
+
+# TODO: We should probably fork this in a repo instead of
+# downloading from this url. Had to include ignore_errors: yes
+# because sometimes the url times out.
+- name: download check_tcptraffic and install
+  get_url:
+    url: "{{check_tcptraffic_url}}"
+    dest: /usr/local/bin/check_tcptraffic
+    owner: root
+    group: root
+    mode: '0755'
+    checksum: "{{check_tcptraffic_sum}}"
+  become: true
+  when: inventory_hostname in groups.edges
+  ignore_errors: yes
+
+# This is legacy. Not used anymore
+- name: install runargs.sh
+  become: yes
+  template:
+    src: scripts/runargs.sh.j2
+    dest: "/usr/local/bin/runargs.sh"
+    owner: root
+    group: root
+    mode: '0755'
+  when: inventory_hostname in groups.edges

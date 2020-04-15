@@ -1,0 +1,83 @@
+---
+- name: Create group_vars directory
+  file:
+    path: "{{item}}"
+    state: directory
+    mode: '0750'
+  loop:
+    - config
+    - config/group_vars
+    - config/host_vars
+    - config/zones
+    - config/filebeat
+    - config/inventory
+    - config/harden
+    - config/harden/ufw
+    - config/ldap
+    - config/ldap/certs
+    - config/redmine
+    - config/redmine/plugins
+    - config/redmine/scripts
+    - config/email
+    - config/users
+    - config/users/keys
+    - config/users/pw
+
+- name: link group_vars to top level
+  file:
+    src: "config/{{ item }}"
+    dest: "{{ item }}"
+    state: link
+  loop:
+    - group_vars
+    - host_vars
+
+- name: Create the inventory file.
+  template:
+    src: inventory.j2
+    dest: config/inventory/inventory
+    force: no
+
+- name: Create the edges inventory file. Blank (workaround)
+  template:
+    src: edges.j2
+    dest: config/inventory/edges
+    force: no
+
+- name: Create the main zones.yml.example.
+  template:
+    src: zones.yml.j2
+    dest: config/zones.yml.example
+    force: yes
+
+- name: Create config/zones.yml if it does not exist [touch]
+  file:
+    path: config/zones.yml
+    state: touch
+
+- name: Create the main mydomain.co.yml.example.
+  template:
+    src: mydomain.co.yml.j2
+    dest: config/zones/mydomain.co.yml.example
+    force: yes
+
+- name: generate random strings for passwords
+  local_action: shell < /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c {{ item.size }}
+  register: rand_result
+  loop:
+    - { size: '{{25|random(20,1)}}' }
+    - { size: '{{25|random(20,1)}}' }
+    - { size: '{{25|random(20,1)}}' }
+    - { size: '{{40|random(30,1)}}' }
+    - { size: '{{25|random(20,1)}}' }
+    - { size: '{{25|random(20,1)}}' }
+    - { size: '{{40|random(30,1)}}' }
+    - { size: '{{14|random(9,1)}}' }
+  when: init_play is defined and init_play
+
+- name: Create the main variables file (group_vars/all.yml).
+  template:
+    src: all.yml.j2
+    dest: config/group_vars/all.yml
+    force: no
+  when: init_play is defined and init_play

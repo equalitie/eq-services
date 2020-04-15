@@ -1,0 +1,24 @@
+---
+mattermost_sites:
+{% for site in mattermost_sites.split() %}
+  - {{site}}
+{% endfor %}
+{% if mattermost_use_letsencrypt == 'true' or mattermost_use_letsencrypt == 'yes' or
+mattermost_use_letsencrypt == 'y' %}
+mattermost_use_letsencrypt: true
+{% else %}
+mattermost_use_letsencrypt: false
+{% endif %}
+{% if mattermost_enterprise == 'true' or mattermost_enterprise == 'yes' or
+mattermost_enterprise == 'y' %}
+mattermost_enterprise: true
+{% else %}
+mattermost_enterprise: false
+{% endif %}
+
+# The variable below are used to do initial install only. They
+# should not be change after you install for the first time.
+mattermost_feedback_email: '{{ mattermost_feedback_email }}'
+mattermost_database_key: '{{ rand_result.results[2].stdout }}'
+mattermost_invite_salt: '{{ rand_result.results[3].stdout }}'
+mattermost_postgresql_password: '{{ mattermost_postgresql_password }}'

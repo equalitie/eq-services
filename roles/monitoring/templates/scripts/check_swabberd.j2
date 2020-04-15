@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+# {{ansible_managed}}
+#
+# imports
+use strict;
+
+# variables
+my $nagios;
+my $iptables;
+my $grep;
+my $drops = 0;
+
+sub load_module {
+    my @names = @_;
+    my $module;
+    for my $name (@names) {
+        my $file = $name;
+        # requires need either a bare word or a file name
+        $file =~ s{::}{/}gsxm;
+        $file .= '.pm';
+        eval {
+            require $file;
+            $name->import();
+            $module = $name;
+                };
+                last if $module;
+    }
+    return $module;
+}
+
+my $plugin_module;
+BEGIN {
+        $plugin_module = load_module( 'Monitoring::Plugin', 'Nagios::Plugin' );
+}
+
+# plugin setup
+$nagios = $plugin_module->new(
+        plugin          => 'check_swabberd',
+        shortname       => 'SWABBERD',
+        version         => '1.0',
+        usage           => 'Usage: %s -w <warn> -c <crit>',
+        blurb           => 'This plugin checks the iptable DROP by swabberd.',
+        license         => 'This nagios plugin is free software, and comes with ABSOLUTELY no WARRANTY!'
+);
+
+$nagios->add_arg(spec => 'warning|w=s',
+                          help => "Warning threshold",
+                          required => 1);
+$nagios->add_arg(spec => 'critical|c=s',
+                          help => "Critical threshold",
+                          required => 1);
+
+# main
+$nagios->getopts;
+
+$iptables = '/sbin/iptables';
+
+$grep = `which grep 2> /dev/null`;
+chop $grep;
+if ( ! -e $grep ) {
+	$nagios->nagios_die("Could not find grep binary!");
+}
+
+foreach my $entry (split("\n", `sudo $iptables -nvL | $grep DROP`)) {
+        if ( $entry =~ m/swabber/ ) { $drops++; }
+}
+
+my $code = $nagios->check_threshold(
+        check => $drops,
+        warning => $nagios->opts->warning,
+        critical => $nagios->opts->critical,
+);
+
+my $message = sprintf("There are %d swabber iptables DROP", $drops);
+
+# output
+$nagios->add_perfdata(
+        label => "swabber_drops",
+        value => $drops,
+);
+
+$nagios->nagios_exit($code, $message);

@@ -1,0 +1,9 @@
+// {{ansible_managed}}
+
+object Service "cluster" {
+  check_command = "cluster"
+  check_interval = 5s
+  retry_interval = 1s
+
+  host_name = "{{ansible_fqdn}}"
+}

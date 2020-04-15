@@ -1,0 +1,9 @@
+example1.co:
+  - one.example1.co 
+  - dashboard.example1.co
+  - www.exmaple1.co
+site.example2.co:
+  - site2.example3.co 
+docs.example7.co:
+someother.example.co:
+  - www.evenenthis.co

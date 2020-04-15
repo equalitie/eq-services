@@ -1,0 +1,12 @@
+// {{ ansible_managed }}
+
+include "constants.conf"
+
+include "zones.conf"
+
+{% for plugins in icinga_include_plugins %}
+include <{{ plugins }}>
+{% endfor %}
+
+include "features-enabled/*.conf"
+

@@ -1,0 +1,16 @@
+---
+# handlers file for bind_standalone
+
+- name: Restart Service 'bind9'
+  systemd:
+    daemon_reload: yes
+    state: restarted
+    name: bind9
+  become: true
+
+- name: Reload Service 'bind9'
+  systemd:
+    daemon_reload: yes
+    state: reloaded
+    name: bind9
+  become: true

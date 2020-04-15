@@ -1,0 +1,51 @@
+---
+- name: add {{ webmin_key }} key
+  become: true
+  apt_key:
+    url: "{{ webmin_key }}"
+    state: present
+
+- name: add webmin / usermin repository
+  become: true
+  apt_repository:
+    repo: "{{ webmin_repo }}"
+    state: present
+    update_cache: yes
+
+- name: install usermin
+  become: true
+  apt:
+    name:
+      - perl
+      - libnet-ssleay-perl
+      - openssl
+      - libauthen-pam-perl
+      - libpam-runtime
+      - libio-pty-perl
+      - usermin
+    state: present
+
+- name: change usermin /etc/usermin/miniserv.conf
+  become: true
+  lineinfile:
+    path: /etc/usermin/miniserv.conf
+    regexp: "{{ item.r }}"
+    line: "{{ item.l }}"
+  loop:
+    - {r: '^bind=', l: 'bind=127.0.0.1' }
+    - {r: '^sockets=', l: 'sockets=' }
+  notify:
+    - restart usermin
+
+- name: change usermin /etc/usermin/config
+  become: true
+  lineinfile:
+    path: /etc/usermin/config
+    regexp: "{{ item.r }}"
+    line: "{{ item.l }}"
+  loop:
+    - {r: '^webprefix=', l: 'webprefix=/user' }
+    - {r: '^webprefixnoredir=', l: 'webprefixnoredir=1' }
+    - {r: '^referers=', l: "referers={% for site in mailserver_sites %} {{ site }}{% endfor %}"}
+  notify:
+    - restart usermin

@@ -1,0 +1,21 @@
+# {{ansible_managed}}
+
+ssl = yes
+#ssl_ca =
+{% if mail_use_letsencrypt %}
+ssl_cert = </etc/letsencrypt/live/{{ mailserver_sites.0 }}/fullchain.pem
+ssl_key = </etc/letsencrypt/live/{{ mailserver_sites.0 }}/privkey.pem
+{% else %}
+ssl_cert = <{{dovecot_cert_file | default("/etc/ssl/certs/ssl-cert-snakeoil.pem")}}
+ssl_key = <{{dovecot_key_file | default("/etc/ssl/private/ssl-cert-snakeoil.key")}}
+{% endif %}
+# Piggyback on the nginx install
+ssl_dh = </etc/nginx/ssl/dhparam-4096.pem
+
+ssl_client_ca_dir = /etc/ssl/certs
+ssl_min_protocol = TLSv1.2
+
+# SSL ciphers to use, the default is:
+#ssl_cipher_list = ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH
+# To disable non-EC DH, use:
+#ssl_cipher_list = ALL:!DH:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH

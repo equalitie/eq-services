@@ -1,0 +1,273 @@
+---
+
+- name: install php prerequisite
+  apt:
+    name:
+      - php-curl
+      - php-htmlpurifier
+      - php-icinga
+      - php-imagick
+      - php-intl
+      - php-ldap
+      - php-xml
+      - php-gd
+      - php-pgsql
+    state: present
+  become: yes
+  notify:
+    - restart php-fpm
+
+- name: install icinga2 web apps
+  apt:
+    name:
+      - icingaweb2
+      - icingacli
+    state: present
+  become: yes
+     
+- name: Create Icinga2 Web Database User
+  postgresql_user:
+    name: icinga2_web
+    password: "{{icinga2_web_db_user_password}}"
+    encrypted: yes
+    role_attr_flags: CREATEDB,NOSUPERUSER,LOGIN,NOCREATEROLE
+  become: yes
+  become_user: postgres
+
+- name: Create a Icinga2 Web Database
+  postgresql_db:
+    name: icinga2_web
+    state: present
+    encoding: UTF-8
+    owner: icinga2_web
+  register: icinga_web_db
+  become: yes
+  become_user: postgres
+
+- name: Import the Icinga2 Web Schema
+  postgresql_db:
+    name: icinga2_web
+    owner: icinga2_web
+    state: restore
+    target: /usr/share/icingaweb2/etc/schema/pgsql.schema.sql
+    login_host: localhost
+    login_user: icinga2_web
+    login_password: "{{icinga2_web_db_user_password}}"
+  become: yes
+  become_user: postgres
+  when: icinga_web_db.changed == true
+
+# Note: this is already done by apt
+- name: add www-data to icingaweb2
+  user:
+    name: www-data
+    groups: icingaweb2
+  become: yes
+
+- name: add apt modules
+  apt:
+    name:
+      - icingaweb2-module-monitoring
+    state: present
+  become: yes
+
+# Note: other modules are available from git
+# https://github.com/Icinga/icingaweb2-module-
+
+- name: add graphite module from git
+  git:
+    repo: "{{graphite_git_repo}}"
+    dest: /usr/share/icingaweb2/modules/graphite
+    update: yes
+    force: yes
+  become: yes
+
+- name: install Icinga2 Web templates root ini
+  template:
+    src: "icingaweb/{{item}}.j2"
+    dest: "/etc/icingaweb2/{{item}}"
+    owner: www-data
+    group: icingaweb2
+    mode: '0660'
+  become: yes
+  loop:
+    - authentication.ini
+    - config.ini
+    - groups.ini
+    - resources.ini
+    - roles.ini
+
+- name: create enableModules direcory
+  file:
+    path: /etc/icingaweb2/enabledModules
+    state: directory
+    mode: 'u=rwx,g=rx,g+s,o='
+    owner: www-data
+    group: icingaweb2
+  become: yes
+
+- name: link modules
+  file:
+    state: link
+    src: "/usr/share/icingaweb2/modules/{{item}}"
+    dest: "/etc/icingaweb2/enabledModules/{{item}}"
+    owner: www-data
+    group: icingaweb2
+  become: yes
+  loop:
+    - monitoring
+    - doc
+    - graphite
+
+- name: create modules config directories
+  file:
+    path: "/etc/icingaweb2/modules/{{item}}"
+    state: directory
+    owner: www-data
+    group: icingaweb2
+    mode: '0750'
+  become: yes
+  loop:
+    - monitoring
+    - graphite
+
+- name: configure monitoring module
+  template:
+    src: "icingaweb/modules/monitoring/{{item}}.j2"
+    dest: "/etc/icingaweb2/modules/monitoring/{{item}}"
+    mode: '0640'
+    owner: www-data
+    group: icingaweb2
+  become: yes
+  loop:
+    - backends.ini
+    - commandtransports.ini
+    - config.ini
+
+- name: configure graphite module
+  template:
+    src: "icingaweb/modules/graphite/{{item}}.j2"
+    dest: "/etc/icingaweb2/modules/graphite/{{item}}"
+    mode: '0640'
+    owner: www-data
+    group: icingaweb2
+  become: yes
+  loop:
+    - config.ini
+
+# TODO: This is where things go bad.
+- name: install prerequisite for graphite web
+  become: yes
+  apt:
+    name:
+      - uwsgi
+      - uwsgi-plugin-python3
+      - virtualenv
+    state: present
+  tags:
+    - graphite-web
+
+- name: install graphite web from git repo
+  become: yes
+  git:
+    repo: "{{graphite_web_git_repo}}"
+    dest: /opt/graphite
+    version: "master"
+    update: yes
+    force: yes
+  tags:
+    - graphite-web
+
+- name: add graphite.wsgi template
+  become: yes
+  template:
+    src: "{{item.src}}.j2"
+    dest: "{{item.dest}}"
+    mode: '0640'
+    owner: root 
+    group: root 
+  loop:
+    - {src: 'graphite.wsgi', dest: '/opt/graphite/conf/graphite.wsgi'}
+    - {src: 'uwsgi-graphite.ini', dest: '/etc/uwsgi/apps-available/graphite.ini'} 
+
+- name: enable graphite uwsgi
+  become: yes
+  file:
+    src: '/etc/uwsgi/apps-available/graphite.ini'
+    dest: '/etc/uwsgi/apps-enabled/graphite.ini'
+    state: link
+  notify:
+    - 'restart graphite-uwsgi'
+  tags:
+    - graphite-web
+
+- name: make virtualenv in graphite web
+  become: yes
+  shell: /usr/bin/virtualenv --python=/usr/bin/python3 /opt/graphite
+  args:
+    creates: /opt/graphite/bin/activate
+  tags:
+    - graphite-web
+
+- name: pip install the requirements.txt
+  become: yes
+  pip:
+    requirements: /opt/graphite/requirements.txt
+    virtualenv: /opt/graphite
+  tags:
+    - graphite-web
+
+- name: make graphite storage dir
+  become: yes
+  file:
+    path: /opt/graphite/storage
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - graphite-web
+
+- name: install webapp/graphite/local_settings.py
+  become: yes
+  template:
+    src: graphite-web_local_settings.py.j2
+    dest: /opt/graphite/webapp/graphite/local_settings.py
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - graphite-web
+
+
+# This does not work yet. In ansible 2.8+
+#- name: see if there is a admin user
+#  postgresql_query:
+#    db: icinga2_web
+#    query: SELECT name FROM icingaweb_user WHERE name = 'admin'
+#    login_host: localhost
+#    login_user: icinga2_web
+#    login_password: "{{icinga2_web_db_user_password}}"
+#  become: yes
+#  become_user: postgres
+
+- name: see if there is a admin user
+  shell: PGPASSWORD={{icinga2_web_db_user_password}} psql -h localhost -U icinga2_web -d icinga2_web -q -t -c "SELECT count(*) FROM icingaweb_user WHERE name = 'admin'" | sed -e 's/ //g'
+  changed_when: false
+  no_log: yes
+  register: is_admin_user
+
+- name: hash our icinga2web admin password [Note we need to escape the dollar sign for the shell]
+  shell: php -r 'echo password_hash("{{ icinga2web_admin_pass }}", PASSWORD_DEFAULT);' | sed 's/\$/\\$/g'
+  when: is_admin_user.stdout != '1'
+  register: icinga2web_pass
+
+- name: set initial password for admin
+  shell: PGPASSWORD={{icinga2_web_db_user_password}} psql -h localhost -U icinga2_web -d icinga2_web -q -t -c "INSERT INTO icingaweb_user (name, active, password_hash) VALUES ('admin', 1, {{ icinga2web_pass.stdout | quote }})"
+  changed_when: false
+  no_log: yes
+  when: is_admin_user.stdout != '1' and icinga2web_pass.stdout is defined
+
+# TODO: The above just sets the initial password for admin. If we want to change it we need to add a
+# postgresql sql update when: is_admin_user.stdout == '1' and icinga2web_pass.stdout is defined.
+# Did not add because I'm not sure if we want this or we can use the web GUI

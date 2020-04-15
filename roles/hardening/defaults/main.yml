@@ -1,0 +1,4 @@
+---
+ufw_edges_allow_full: '[]'
+ufw_edges_deny_full: '[]'
+ufw_edges_rules: '[]'

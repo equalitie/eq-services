@@ -1,0 +1,9 @@
+# {{ansible_managed}}
+[uwsgi]
+processes = 2
+socket = localhost:8080
+gid = www-data
+uid = www-data
+virtualenv = /opt/graphite
+chdir = /opt/graphite/conf
+module = wsgi:application

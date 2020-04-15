@@ -1,0 +1,13 @@
+---
+
+- name: install Deflect edge hosts files
+  template:
+    src: conf.d/hosts.d/deflect-edge.conf.j2
+    dest: "{{icinga_conf_dir}}/conf.d/hosts.d/{{item}}.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: reload icinga2
+  loop: "{{ groups['edges'] }}"
+

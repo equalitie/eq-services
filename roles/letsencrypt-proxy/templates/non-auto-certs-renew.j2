@@ -1,0 +1,128 @@
+#!/usr/bin/php
+<?php
+// {{ansible_managed}}
+/*
+ * debug = true
+ * does not run any of the certbot commands. 
+ * Output is archived to $MYDIR/archives/edge-certs-$STAMP.tgz
+ * to a file called debug.
+ *
+ */
+$debug = false;
+
+/*** RUN AS CLI ONLY ***/
+if (PHP_SAPI != "cli")
+  exit;
+
+/* just in case */
+$MYDIR = "/opt/non-auto";
+@mkdir($MYDIR);
+@mkdir($MYDIR."/archives");
+
+
+/*** READ IN YAML CONFIG ***/
+$yml = @file_get_contents($MYDIR . '/non-auto.yml');
+if (!empty($yml)) {
+  $sites = @yaml_parse($yml);
+  if (empty($sites)) {
+    print "yaml error with ".$MYDIR."/non-auto.yml\n";
+    exit;
+  }
+} else {
+  print "missing ".$MYDIR."/non-auto.yml\n";
+  exit;
+}
+/*** GET INVOCATION ***/ 
+if (!empty($argv[1]))
+  $STAMP = $argv[1];
+else
+  $STAMP = date("U");
+
+/*** CREATE TEMP DIRECTORY ***/
+$TMPDIR = "/tmp/_non-auto" . substr(md5(mt_rand()), 0, 8);
+while (@mkdir($TMPDIR) === false) {
+  $TMPDIR = "/tmp/_non-auto" . substr(md5(mt_rand()), 0, 8);
+}
+
+/*** DO RENEWALS ***/
+$count = 0;
+foreach($sites as $top => $sub) {
+  if($debug)
+    $cmd = "echo ";
+  else
+    $cmd = "";
+  $cmd .= "certbot certonly --standalone -n -d ". $top;
+  if (!empty($sub)) {
+  foreach($sub as $add)
+    $cmd .= " -d " . $add;
+  }
+  $cmd .= " --pre-hook 'service nginx stop' --post-hook 'service nginx start' --agree-tos --email {{admin_email}} --preferred-challenges http";
+
+  $renewals[$count] = shell_exec($cmd);
+  $count++;
+}
+
+$count = 0;
+foreach($sites as $top => $sub) {
+  $cmd = "";
+  if($debug)
+    $cmd .= "echo ";
+  $cmd .= "cp /etc/letsencrypt/live/" . $top . "/cert.pem " . $TMPDIR . "/" . $top . ".non-auto-le.cert.crt ; ";
+  if($debug)
+    $cmd .= "echo ";
+  $cmd .= "cp /etc/letsencrypt/live/" . $top . "/privkey.pem " . $TMPDIR . "/" . $top . ".non-auto-le.key ; ";
+  if($debug)
+    $cmd .= "echo ";
+  $cmd .= "cp /etc/letsencrypt/live/" . $top . "/chain.pem " . $TMPDIR . "/" . $top . ".non-auto-le.chain.crt";
+
+  $certarchive[$count] = shell_exec($cmd);
+  $count++;
+}
+
+if($debug) {
+  $fp = fopen($TMPDIR . '/debug', 'w');
+  $debug_data = <<<"DEBUG"
+Debug Data:
+  STAMP: $STAMP
+  MYDIR: $MYDIR
+  TMPDIR: $TMPDIR
+
+DEBUG;
+  $debug_data .= '  SITES: '. print_r($sites, true)."\n";
+  $debug_data .= '  RENEWAL_CMD: '. print_r($renewals, true)."\n";
+  $debug_data .= '  CP_CMD: '. print_r($certarchive, true);
+
+  fwrite($fp, $debug_data);
+  fclose($fp);
+}
+  
+shell_exec('cd '. $TMPDIR .'; tar cfz '. $MYDIR. '/archives/edge-certs-'. $STAMP .'.tgz * ; cd -');
+		   
+/*** DELETE TEMP DIRECTORY ***/
+deltree_cat($TMPDIR);
+
+if ((!empty($argv[2])) && ($argv[2] == 'nagios' || $argv[2] == 'autodeflect'))
+  exit;
+
+/* functions */
+
+function deltree_cat($folder) {
+  if (is_dir($folder)) {
+    $handle = opendir($folder);
+    while ($subfile = readdir($handle)) {
+      if ($subfile == '.' or $subfile == '..')
+        continue;
+
+      if (is_file($subfile))
+        unlink("{$folder}/{$subfile}");
+      else
+        deltree_cat("{$folder}/{$subfile}");
+    }
+    closedir($handle);
+    rmdir ($folder);
+  }
+  else {
+    unlink($folder);
+  }
+}
+?>

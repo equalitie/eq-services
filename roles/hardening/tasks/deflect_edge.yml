@@ -1,0 +1,115 @@
+---
+# We should only be here if
+# when: inventory_hostname in groups.edges
+
+- name: add comment in before.rules for deflect edges
+  become: yes
+  lineinfile:
+    dest: '/etc/ufw/before.rules'
+    regexp: "## Insert Deflect custom rules"
+    insertafter: '-A ufw-before-output -o lo -j ACCEPT\n'
+    line: "## Insert Deflect custom rules"
+    state: present
+    owner: root
+    group: root
+    mode: '0640'
+  tags:
+    - ufw
+    - edges_firewall
+
+- name: add concurrent connection iptables rule
+  become: yes
+  lineinfile:
+    dest: '/etc/ufw/before.rules'
+    insertafter: "{{item.regexp}}"
+    line: "{{item.line}}"
+    state: present
+    owner: root
+    group: root
+    mode: '0640'
+  notify: reload ufw
+  loop:
+    - { regexp: "^## Insert Deflect custom rules", line: "-A ufw-before-input -p tcp -m multiport --destination-port 80,443 --syn -m connlimit --connlimit-above 30 -j REJECT --reject-with tcp-reset" }
+  tags:
+    - ufw
+    - edges_firewall
+
+- include_vars: "{{item}}"
+  with_first_found:
+    - config/harden/ufw/edges_deny_full.yml
+    - roles/empty_fallback.yml
+  tags:
+    - ufw
+    - edges_firewall
+
+- name: add additional deny full
+  become: yes
+  ufw:
+    rule: deny
+    from_ip: "{{item}}"
+    insert: 1
+  notify: reload ufw
+  loop: "{{ufw_edges_deny_full}}"
+  tags:
+    - ufw
+    - edges_firewall
+
+- include_vars: "{{item}}"
+  with_first_found:
+    - config/harden/ufw/edges_allow_full.yml
+    - roles/empty_fallback.yml
+  tags:
+    - ufw
+    - edges_firewall
+
+- name: add additional allow full
+  become: yes
+  ufw:
+    rule: allow
+    from_ip: "{{item}}"
+    insert: 1
+  notify: reload ufw
+  loop: "{{ufw_edges_allow_full}}"
+  tags:
+    - ufw
+    - edges_firewall
+
+- include_vars: "{{item}}"
+  with_first_found:
+    - config/harden/ufw/edges_rules.yml
+    - roles/empty_fallback.yml
+  tags:
+    - ufw
+    - edges_firewall
+
+- name: add additional rules
+  become: yes
+  ufw:
+    rule: "{{ item.rule }}"
+    direction: "{{ item.direction | default('in') }}"
+    from_ip: "{{ item.from_ip | default('any') }}"
+    to_ip: "{{ item.to_ip | default('any') }}"
+    from_port: "{{ item.from_port | default('') }}"
+    to_port: "{{ item.to_port | default('') }}"
+    proto: "{{ item.protocol | default('any') }}"
+    log: "{{ item.log | default(false) }}"
+  loop: "{{ ufw_edges_rules }}"
+  notify: reload ufw
+  tags:
+    - ufw
+    - edges_firewall
+
+- name: allow all tcp http and https
+  become: yes
+  ufw:
+    rule: allow
+    proto: tcp
+    to_port: "{{item}}"
+  notify: reload ufw
+  loop:
+    - "80"
+    - "443"
+  tags:
+    - ufw
+    - edges_firewall
+

@@ -1,0 +1,41 @@
+# {{ ansible_managed }}
+MAILER-DAEMON:	postmaster
+abuse:		postmaster
+clamav:		postmaster
+mail:		postmaster
+amavis:		postmaster
+postfix:	postmaster
+dovecot:	postmaster
+ftp:		hostmaster
+www:		webmaster
+www-data:	webmaster
+wordpress:	webmaster
+news:		usenet
+
+usenet:		root
+postmaster:	root
+hostmaster:	root
+webmaster:	root
+
+adm:		root
+bin:		root
+daemon:		root
+lp:		root
+named:		root
+nobody:		root
+operator:	root
+noc:		root
+security:	root
+uucp:		root
+openstack:	root
+backups:	root
+backup:		root
+zabbix:		root
+
+{% set comma = joiner(", ") %}
+root:		{% for email in root_emails %}{{ comma() }}{{ email }}{% endfor %}
+
+# {{ ansible_managed }}
+# email server included config/email/{{ email_prefix }}postfix_aliases
+{% include "config/email/" + email_prefix + "postfix_aliases" ignore missing %}
+

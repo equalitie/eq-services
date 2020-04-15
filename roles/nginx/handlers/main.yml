@@ -1,0 +1,16 @@
+---
+# handlers file for nginx
+
+- name: Restart Service 'nginx'
+  systemd:
+#    daemon_reload: yes
+    state: restarted
+    name: nginx 
+  become: true
+
+- name: Reload Service 'nginx'
+  systemd:
+#    daemon_reload: yes
+    state: reloaded
+    name: nginx 
+  become: true

@@ -1,0 +1,30 @@
+---
+- name: Configure {{ item.key }} overlay
+  become: true
+  command: >
+    /usr/local/bin/slapd-overlay-attribute-upsert "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "olcDatabase={2}mdb,cn=config"
+    "{{ item.key }}" "{{ attr.key }}" "{{ attr.value }}"
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  with_dict: "{{ item.value }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout | default('')"
+  loop_control:
+    loop_var: attr
+
+- name: Clean unknown attributes in {{ item.key }} overlay
+  become: true
+  command: >
+    /usr/local/bin/slapd-overlay-olc-attribute-clean "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "olcDatabase={2}mdb,cn=config"
+    "{{ item.key }}"
+    {% for dict in item.value %}
+    {% for key, value in dict.items() %}
+    "{{ key }}: {{ value }}"
+    {% endfor %}
+    {% endfor %}
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout | default('')"

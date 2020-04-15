@@ -1,0 +1,31 @@
+# {{ansible_managed}}
+
+namespace inbox {
+
+  mailbox Drafts {
+    special_use = \Drafts
+  }
+  mailbox Junk {
+    special_use = \Junk
+  }
+  mailbox Trash {
+    special_use = \Trash
+  }
+
+  mailbox Sent {
+    special_use = \Sent
+  }
+  mailbox "Sent Messages" {
+    special_use = \Sent
+  }
+
+  mailbox virtual/All {
+    special_use = \All
+    comment = All messages
+  }
+
+  mailbox virtual/Flagged {
+    special_use = \Flagged
+    comment = All flagged messages
+  }
+}

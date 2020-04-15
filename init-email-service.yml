@@ -1,0 +1,62 @@
+---
+- hosts: cityhall
+  gather_facts: false
+
+  vars_prompt:
+
+    - name: 'root_emails'
+      prompt: 'Who gets root emails, space separated if more than one'
+      default: 'admin someone@another.tld'
+      private: no
+
+    - name: 'local_domains'
+      prompt: 'Your local mail domains [Do not include virtual], space separated if more than one'
+      default: 'mail.domain.tld domain.tld'
+      private: no
+
+    - name: 'postfix_virtual_alias_domains'
+      prompt: 'Your virual domains, space separated if more than one'
+      default: 'mail.otherdomain.tld otherdomain.tld'
+      private: no
+
+    - name: 'mail_use_letsencrypt'
+      prompt: 'Use Letencrypt (y/n)?'
+      default: 'n'
+      private: no
+
+    - name: 'enable_mailman'
+      prompt: 'Do you want to use Mailman (y/n)'
+      default: 'n'
+      private: no
+
+    - name: 'mailman_domain'
+      prompt: 'What is your Mailman domain (if enabled)'
+      default: 'lists.domain.tld'
+      private: no
+
+    - name: 'mailman_admin_email'
+      prompt: 'What is your Mailman admin email (if enabled)'
+      default: 'admin@domain.tld'
+      private: no
+
+  tasks:
+    - name: generate random strings for passwords
+      local_action: shell < /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c {{ item.size }}
+      register: rand_result
+      loop:
+        - { size: '{{25|random(20,1)}}' }
+        - { size: '{{40|random(30,1)}}' }
+
+    - set_fact:
+        mailman_admin_password: "{{ rand_result.results[item].stdout }}"
+      with_random_choice:
+        - 0
+        - 1
+
+    - name: create group_vars/mail_service.yml
+      template:
+        src: roles/email-service/templates/mail_service.yml.j2
+        dest: config/group_vars/mail_service.yml
+
+    - debug:
+        msg: "Now edit group_vars/mail_service.yml and add server to the inventory [Important]"

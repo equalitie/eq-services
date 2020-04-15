@@ -1,0 +1,67 @@
+---
+# tasks file for nginx
+
+- name: install nginx
+  apt:
+    name:
+      - nginx-extras
+      - openssl
+      - ssl-cert
+      - certbot
+    state: present
+  become: true
+  tags:
+    - apt
+
+- name: remove default site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  become: true
+  notify:
+    - "Reload Service 'nginx'"
+
+- name: create nginx extra directories
+  file:
+    path: "/etc/nginx/{{item}}"
+    state: directory
+    owner: root
+    group: root 
+    mode: 'u=rwx,g=rx,o=rx'
+  become: true
+  with_items:
+    - .htpasswd
+    - snippets 
+    - ssl 
+    - tcpconf.d
+
+- name: create dhparam.pem 4096. [Information] This will take awhile the first time.
+  command: openssl dhparam -out /etc/nginx/ssl/dhparam-4096.pem 4096
+  args:
+    creates: /etc/nginx/ssl/dhparam-4096.pem
+  become: true
+  when: skip_nginx_tls is not defined or skip_nginx_tls == false
+
+- name: install from nginx.conf template
+  template:
+    src: "{{item}}.j2"
+    dest: "/etc/nginx/{{item}}"
+    owner: root
+    group: root
+    mode: 'u=rw,g=r,o=r'
+  with_items:
+    - nginx.conf 
+    - snippets/https.conf
+    - snippets/proxy-letsencrypt.conf
+  become: true
+  notify:
+    - "Restart Service 'nginx'"
+
+- name: install catcchall-index
+  template:
+    src: catchall-index.html.j2
+    dest: /var/www/html/catchall-index.html
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes

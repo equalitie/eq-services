@@ -1,0 +1,12 @@
+---
+# https://github.com/AlphaNodes/redmine_messenger.git
+- name: install redmine_messenger from git
+  become: true
+  become_user: "{{ redmine_user }}"
+  git:
+    repo: "{{ redmine_messenger_repo }}"
+    dest: "{{ redmine_root }}/plugins/redmine_messenger"
+    version: "master"
+  notify:
+    - 'plugins migrate'
+    - 'nginx restart'

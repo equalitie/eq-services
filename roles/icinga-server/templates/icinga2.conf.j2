@@ -1,0 +1,15 @@
+// {{ ansible_managed }}
+
+include "constants.conf"
+
+include "zones.conf"
+
+{% for plugins in icinga_include_plugins %}
+include <{{ plugins }}>
+{% endfor %}
+
+include "features-enabled/*.conf"
+
+//include_recursive "{{ icinga_conf_dir }}/conf.d"
+include "{{ icinga_conf_dir }}/conf.d/api-users.conf"
+include "{{ icinga_conf_dir }}/conf.d/api-users.d/*.conf"

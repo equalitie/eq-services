@@ -1,0 +1,152 @@
+---
+# tasks file for common
+#
+- name: use ipv4 as default for getaddrinfo
+  become: true
+  lineinfile:
+    dest: /etc/gai.conf
+    state: present
+    regexp: "{{item.regexp}}"
+    line: "{{item.line}}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - { regexp: '^#precedence\s+::ffff:0:0/96\s+100', line: 'precedence ::ffff:0:0/96  100' }
+  when: default_getaddr_v4
+  tags:
+    - apt
+    - common
+    - gai
+
+- name: enable backports
+  apt_repository:
+    repo: "deb http://deb.debian.org/debian {{ansible_distribution_release}}-backports main"
+    state: present
+  become: yes
+  tags:
+    - common
+    - apt
+
+- name: apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: true
+  tags:
+    - common
+    - apt
+
+- name: apt dist-upgrade
+  apt:
+    upgrade: dist
+  become: true
+  tags:
+    - common
+    - apt
+
+- name: apt autoremove
+  apt:
+    autoremove: yes
+  become: true
+  tags:
+    - common
+    - apt
+
+- name: Install common packages
+  apt:
+    name:
+      - aptitude
+      - man-db
+      - vim
+      - haveged
+      - resolvconf
+      - ntp
+      - ntpdate
+      - cron
+      - curl
+      - dnsutils
+      - gawk
+      - less
+      - lsof
+      - openssl
+      - perl
+      - rsync
+      - screen
+      - sudo
+      - tzdata
+      - unzip
+      - zip
+      - bzip2
+      - locales
+      - software-properties-common
+      - apt-transport-https
+      - htop
+      - acl
+      - gnupg
+      - strace
+      - dbus
+    state: present
+  become: true
+  tags:
+    - common
+    - apt
+
+- name: set timezone to {{ timezone }}
+  timezone:
+    name: "{{ timezone }}"
+  become: true
+  tags:
+    - common
+
+- name: set hostname
+  hostname:
+    name: "{{inventory_hostname.split('.').0}}"
+  become: true
+  when: set_hostname is not defined or set_hostname
+  notify:
+    - restart systemd-logind
+
+- name: remove 127.0.1.1 from hosts
+  become: yes
+  replace:
+    path: /etc/hosts
+    regexp: '^(127\.0\.1\.1.*)'
+    replace: '# \1'
+
+- name: Build hosts file (backups will be made)
+  lineinfile:
+    dest: /etc/hosts
+    regexp: "^{{ ansible_default_ipv4.address }}"
+    line: "{{ ansible_default_ipv4.address }} {{ inventory_hostname }} {{ inventory_hostname.split('.').0 }}"
+    state: present
+    backup: yes
+  when: ansible_default_ipv4.address is defined
+  become: yes
+  notify:
+    - restart systemd-logind
+
+- name: Re-gather facts
+  action: setup
+  when: ansible_hostname != inventory_hostname
+
+- name: install resolveconf head template
+  template:
+    src: "resolvconf-head.j2"
+    dest: "/etc/resolvconf/resolv.conf.d/head"
+    owner: root
+    group: root
+    mode: 'u=rw,g=r,o=r'
+  become: true
+  when: (not disable_resolv_conf is defined or not disable_resolv_conf)
+  notify:
+    - "Restart Service 'resolvconf'"
+  tags:
+    - common
+
+- name: fix if tls-certs got deployed in a bug
+  become: yes
+  file:
+    path: /opt/certs-admin
+    state: absent
+  when: inventory_hostname not in groups.cityhall

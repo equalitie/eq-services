@@ -1,0 +1,9 @@
+---
+mumble_password: '{{mumble_password}}'
+mumble_superuser_pass: '{{mumble_superuser_pass}}'
+mumble_sites:
+{% for site in mumble_sites.split() %}
+  - {{site}}
+{% endfor %}
+mumble_port: '64738'
+mumble_use_letsencrypt: true

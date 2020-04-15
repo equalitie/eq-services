@@ -1,0 +1,52 @@
+/*
+ * {{ansible_managed}}
+ *
+ *
+ */
+
+object Endpoint "{{ansible_fqdn}}" {
+  host = "{{ansible_fqdn}}"
+}
+
+object Zone "master" {
+  endpoints = [ "{{ansible_fqdn}}"  ]
+}
+
+object Zone "global-templates" {
+  global = true
+}
+
+object Zone "director-global" {
+  global = true
+}
+
+{% if groups['icinga_hosts'] is defined %}
+{% for remote_host in groups['icinga_hosts'] %}
+
+object Endpoint "{{remote_host}}" {
+  host = "{{remote_host}}"
+}
+
+object Zone "{{remote_host}}" {
+  endpoints = [ "{{remote_host}}" ]
+  parent = "master"
+} 
+{% endfor %}
+{% endif %}
+
+{% if groups['edges'] is defined %}
+/* 
+ * Deflect Edges
+ */
+{% for remote_host in groups['edges'] %}
+
+object Endpoint "{{remote_host}}" {
+  host = "{{remote_host}}"
+}
+
+object Zone "{{remote_host}}" {
+  endpoints = [ "{{remote_host}}" ]
+  parent = "master"
+} 
+{% endfor %}
+{% endif %}

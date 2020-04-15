@@ -1,0 +1,47 @@
+# All these should be FQDN because the common role sets FQDN up based
+# on the name given. So do not use like 'localhost'
+
+[cityhall]
+#thishost.mydomain.co ansible_connection=local ansible_become_pass='my_super_secret_password'
+
+[bind_service]
+# Options here are bind_type={master,slave} and enable_edgemanage=true
+# This role also depends on the config/zones.yml correctly setup
+#ns2.mydomain.co ansible_ssh_host=192.168.1.2 ansible_ssh_user=superuser ansible_become_pass='some_secret_password_qq' bind_type=slave
+#ns1.mydomain.co ansible_ssh_host=192.168.1.3 ansible_ssh_user=superuser ansible_become_pass='some_secret_password_ff' bind_type=master
+#thishost.mydomain.co ansible_ssh_host=192.168.1.3 ansible_ssh_user=superuser ansible_become_pass='some_secret_password_ff' bind_type=slave enable_edgemanage=true
+
+[deflect_controller]
+# The group is usually just one host and probably the same host as in the cityhall group.
+# Add deflect_edge_key_pass='kmdfkmfdkmldf' to this.
+#thishost.mydomain.co ansible_connection=local ansible_become_pass='my_super_secret_password' deflect_edge_key_pass='another_secret_passphrase'
+
+[backup_controller]
+#thishost.mydomain.co ansible_connection=local ansible_become_pass='my_super_secret_password'
+
+[letsencrypt_server]
+#letsencrypt.mydomain.co ansible_ssh_user=root
+
+[icinga_server]
+# Recommend adding to this host disable_resolv_conf=true
+
+[icinga_hosts]
+# The hosts that we monitor
+
+[docker_service]
+# This is used to just add a docker engine to the host. Usually not needed
+
+[app_service]
+# mysql_root_db_pass needs to be set for host here or in a hosts var. Recommend adding to this host disable_resolv_conf=true
+
+[ldap_server]
+# The ldap server. You can set slapd_olc_rootdn_password='somepassword'. Recommend disable_resolv_conf=true
+
+[redmine_server]
+# The redmine server. Recommend disable_resolv_conf=true
+
+[mumble_server]
+# The mumble server. Recommend disable_resolv_conf=true.
+
+[mattermost_server]
+# The mattermost server. Recommend disable_resolv_conf=true.

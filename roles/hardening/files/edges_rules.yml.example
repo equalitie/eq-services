@@ -1,0 +1,22 @@
+---
+#rule: "{{ item.rule }}"
+#direction: "{{ item.direction | default('in') }}"
+#from_ip: "{{ item.from_ip | default('any') }}"
+#to_ip: "{{ item.to_ip | default('any') }}"
+#from_port: "{{ item.from_port | default('') }}"
+#to_port: "{{ item.to_port | default('') }}"
+#protocol: "{{ item.protocol | default('any') }}"
+#log: "{{ item.log | default(false) }}"
+
+# Example allow ssh from ip 192.168.5.3 and 192.168.5.4
+ufw_edges_rules:
+  - rule: allow
+    direction: in
+    from_ip: 192.168.5.3
+    to_port: 22
+    protocol: tcp
+  - rule: allow
+    direction: in
+    from_ip: 192.168.5.4
+    to_port: 22
+    protocol: tcp

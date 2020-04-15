@@ -1,0 +1,159 @@
+---
+- name: load users vars if exist
+  include_vars: "{{ lookup('first_found', user_files) }}"
+  vars:
+    user_files:
+      - "config/users/{{ inventory_hostname }}.yml"
+      - roles/empty_fallback.yml
+  tags:
+    - users
+
+- name: install renew_user_passwd if we need to manage users
+  become: true
+  template:
+    src: renew_user_passwd.j2
+    dest: /usr/local/sbin/renew_user_passwd
+    owner: root
+    group: root
+    mode: '0755'
+  when: users_list is defined
+  tags:
+    - users
+
+- name: create users with home directories
+  become: true
+  user:
+    name: "{{ item.user }}"
+    comment: "{{ item.comment | default('') }}"
+    shell: "{{ item.shell | default('/bin/false') }}"
+    create_home: true
+    home: "{{ item.home | default('/home/' + item.user) }}"
+    move_home: true
+    state: present
+    groups: "{% set comma = joiner(', ') %}{% for group in item.groups | default('') %}{{ comma() }}{{ group }}{% endfor %}"
+    append: false
+  when: users_list is defined and (item.create_home is defined and item.create_home)
+        and (item.delete is undefined or not item.delete)
+  loop: "{{ users_list }}"
+  tags:
+    - users
+
+- name: create users without create home directories
+  become: true
+  user:
+    name: "{{ item.user }}"
+    comment: "{{ item.comment | default('') }}"
+    shell: "{{ item.shell | default('/bin/false') }}"
+    create_home: false
+    home: "{{ item.home | default('/nonexistent') }}"
+    state: present
+    groups: "{% set comma = joiner(', ') %}{% for group in item.groups | default('') %}{{ comma() }}{{ group }}{% endfor %}"
+    append: false
+  when: users_list is defined and (item.create_home is undefined or not item.create_home)
+        and (item.delete is undefined or not item.delete)
+  loop: "{{ users_list }}"
+  tags:
+    - users
+
+- name: create .ssh directory
+  become: true
+  file:
+    path: "{{ item.home }}/.ssh"
+    state: directory
+    owner: "{{ item.user }}"
+    group: "{{ item.user }}"
+    mode: '0700'
+  loop: "{{ users_list }}"
+  when: users_list is defined and item.active and
+        (item.create_home is defined and item.create_home)
+  tags:
+    - users
+
+- name: if not active, move .ssh to .ssh_backup
+  become: true
+  command: "mv {{ item.home }}/.ssh {{ item.home }}/.ssh_backup"
+  args:
+    creates: "{{ item.home }}/.ssh_backup"
+  loop: "{{ users_list }}"
+  when: users_list is defined and not item.active and
+        item.delete is undefined and (item.create_home is defined and item.create_home)
+  tags:
+    - users
+
+- name: find users that have not had password setup
+  become: true
+  stat:
+    path: "{{ item.home }}/.password_set" 
+  loop: "{{ users_list }}"
+  when: users_list is defined and item.active and (item.create_home is defined and item.create_home)
+  register: password_set
+  tags:
+    - users
+
+# here we set the first password
+- name: set passwd if needed [Note We do not set passwd if we do not create home directory] 
+  become: true
+  command: "/usr/local/sbin/renew_user_passwd {{ item.item.user }}"
+  loop: "{{ password_set.results }}"
+  when: users_list is defined and password_set is defined and
+        item.item.create_home is defined and item.item.create_home
+        and item.stat is defined and not item.stat.exists
+  register: passwd_change
+  tags:
+    - users
+
+- name: create local passwd storage file
+  local_action:
+    module: file
+    path: "config/users/pw/{{ inventory_hostname }}"
+    state: touch
+    mode: '0600'
+  when: passwd_change is defined and passwd_change.results is defined
+  tags:
+    - users 
+
+- name: write local password info in local file
+  local_action:
+    module: lineinfile
+    path: "config/users/pw/{{ inventory_hostname }}"
+    regexp: "^{{ item.item.item.user }},"
+    line: "{{ item.stdout }}"
+  loop: "{{ passwd_change.results }}" 
+  when: item is defined and item.stdout is defined
+  tags:
+    - users
+
+- name: mark that password was set
+  become: true
+  copy:
+    content: "Remove this file only if you want ansible to reset password."
+    dest: "{{ item.home }}/.password_set"
+    owner: "{{ item.user }}"
+    group: "{{ item.user }}"
+    mode: '0644'
+  loop: "{{ users_list }}"
+  when: users_list is defined and item.active and (item.create_home is defined and item.create_home)
+  tags:
+    - users
+
+- name: deactivate users password [this task does not remove user or authoroized_keys]
+  become: true
+  user:
+    name: "{{ item.user }}"
+    password_lock: true
+  when: users_list is defined and not item.active and (item.delete is undefined or not item.delete)
+  loop: "{{ users_list }}"
+  tags:
+    - users
+
+- name: delete a user
+  become: true
+  user:
+    name: "{{ item.user }}"
+    state: absent
+    remove: true
+    force: true
+  loop: "{{ users_list }}"
+  when: users_list is defined and not item.active and item.delete is defined and item.delete
+  tags:
+    - users

@@ -1,0 +1,11 @@
+// {{ ansible_managed }}
+
+/**
+ * This file defines global constants which can be used in
+ * the other configuration files.
+ */
+
+{% for name, value in icinga_constants.items() %}
+const {{ name }} = "{{ value }}"
+{% endfor %}
+const ZoneName = NodeName

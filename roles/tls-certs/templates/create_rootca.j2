@@ -1,0 +1,52 @@
+#!/bin/bash
+# {{ansible_managed}}
+
+# This will create a root CA with passphrase
+
+currrent_dir=`pwd`
+
+echo "Warning: This will recreate you rootCA key and rootCA cert"
+echo "You will be given the option to recreate each indivitually."
+echo
+
+while true; do
+	read -p "If you wish to continue, type YES. Anything else will exit. " y
+	case $y in
+		'YES' ) break
+		;;
+		* ) exit
+		;;
+	esac
+done
+echo
+
+cd {{tls_certs_root}}
+while true; do
+	read -p "Create your private/rootCA.key? [YES/NO] " y
+	case $y in
+		'YES' ) openssl genrsa -aes256 -out private/rootCA.key 4096 && break
+		;;
+		'NO' ) break
+		;;
+		* ) echo "Please answer YES or NO."
+		;;
+	esac
+done
+
+while true; do
+	read -p "Create your certs/rootCA.cert? [YES/NO] " y
+	case $y in
+		'YES' ) openssl req -config openssl.cnf -key private/rootCA.key -new -x509 -days 7300 -sha256 -extensions v3_ca -out certs/rootCA.cert && break
+		;;
+		'NO' ) break
+		;;
+		* ) echo "Please answer YES or NO."
+		;;
+	esac
+done
+
+echo
+echo
+echo "Do not forget to keep your passphrase in a safe place."
+
+cd ${currrent_dir}

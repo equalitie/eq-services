@@ -1,0 +1,8 @@
+# This file must exist.
+# used in task like:
+#
+#- include_vars: '{{item}}'
+#  with_first_found:
+#    - config/some_file_that_could_exist_or_not.yml
+#    - empty_fallback.yml
+#

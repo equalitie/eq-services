@@ -1,0 +1,26 @@
+---
+zones:
+  - {name: 'mydomain.co'}
+
+forwarders:
+  - 1.1.1.1
+  - 8.8.8.8
+  - 8.8.4.4
+zone_transfer_peers:
+  - 192.168.1.3 
+masters:
+  - 192.168.1.2 
+slaves:
+  - 192.168.1.3 
+zone_recursion_acls:
+  - internal
+  - external
+acl:
+  internal:
+    ips:
+      - 192.168.4.0/24
+  external:
+    ips:
+      - 192.168.1.2/32
+      - 192.168.1.3/32
+      - 192.168.20.0/25

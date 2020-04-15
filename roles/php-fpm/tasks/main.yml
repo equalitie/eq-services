@@ -1,0 +1,10 @@
+---
+
+- name: install controller packages 
+  apt:
+    name:
+      - php{{php_version}}-fpm
+    state: present
+  become: true
+  tags:
+    - apt

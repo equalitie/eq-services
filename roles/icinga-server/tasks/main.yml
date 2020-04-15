@@ -1,0 +1,31 @@
+---
+# these 2 roles add the autodeflect vars if setup, ie; dnets
+
+- name: check if autodeflect is configured
+  become: yes
+  stat:
+    path: "{{deflect_controller_root}}/modules/autodeflect/config/group_vars/controller.yml"
+  delegate_to: "{{groups.cityhall | first }}"
+  run_once: yes
+  register: ad_controller_file
+
+- name: autodeflect controller variables
+  become: yes
+  include_vars: "{{deflect_controller_root}}/modules/autodeflect/config/group_vars/controller.yml"
+  when: "(ad_controller_file.stat.readable | default(false))"
+
+- include_tasks: icinga2.yml
+  tags:
+    - always
+
+- include_tasks: icinga2-web.yml
+  tags:
+    - always
+
+- include_tasks: webserver.yml
+  tags:
+    - always
+
+- include_tasks: icinga2-hosts.yml
+  tags:
+    - always

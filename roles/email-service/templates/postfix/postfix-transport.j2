@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+
+# {{ ansible_managed }}
+# Smart server included config/email/{{ email_prefix }}postfix_transport
+{% include "config/email/" + email_prefix + "postfix_transport" ignore missing %}

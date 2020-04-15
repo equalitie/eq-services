@@ -1,0 +1,16 @@
+---
+postgresql_redmine_user_pass: '{{postgresql_redmine_user_pass}}'
+redmine_sites:
+{% for site in redmine_sites.split() %}
+  - {{site}}
+{% endfor %}
+redmine_max_body_size: '10m'
+
+# Install these plugins (true/false)
+sb_redmine_2fa: false
+wiki_improvements: true
+redmine_messenger: true
+redmine_wktime: true
+
+#redmine_local_install:
+#        - {file: 'test_plugin.tar.gz', name: 'test_plugin', notify: [ 'nginx restart', 'noop' ], script: true}

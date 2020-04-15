@@ -1,0 +1,157 @@
+# {{ ansible_managed }}
+
+smtpd_banner = $myhostname ESMTP $mail_name
+biff = no
+append_dot_mydomain = no
+readme_directory = no
+compatibility_level = 2
+
+# TLS parameters "SMTP Server"
+smtpd_use_tls = yes
+{% if mail_use_letsencrypt %}
+smtpd_tls_cert_file = /etc/letsencrypt/live/{{ mailserver_sites.0 }}/fullchain.pem
+smtpd_tls_key_file = /etc/letsencrypt/live/{{ mailserver_sites.0 }}/privkey.pem
+{% else %}
+smtpd_tls_cert_file = {{postfix_cert_file | default("/etc/ssl/certs/ssl-cert-snakeoil.pem")}}
+smtpd_tls_key_file = {{postfix_key_file | default("/etc/ssl/private/ssl-cert-snakeoil.key")}}
+{% endif %}
+# smtpd_tls_CAfile = /etc/ssl/certs/xxx_CA.pem
+smtpd_tls_dh512_param_file = /etc/ssl/dhparam-512.pem
+smtpd_tls_dh1024_param_file = /etc/ssl/dhparam-2048.pem
+smtpd_tls_exclude_ciphers = aNULL, MD5, DES, ADH, 3DES, DES-CBC3-SHA, RC4-SHA, AES256-SHA, AES128-SHA
+smtpd_tls_received_header = yes
+smtpd_tls_session_cache_timeout = 3600s
+smtpd_tls_protocols = !SSLv2, !SSLv3
+smtpd_tls_ciphers = medium
+smtpd_tls_auth_only = yes
+smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
+smtpd_tls_security_level = may
+smtpd_tls_loglevel = 1
+smtpd_tls_CApath = /etc/ssl/certs
+
+# TLS parameters "SMTP client"
+smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
+smtp_tls_note_starttls_offer = yes
+smtp_tls_security_level = may
+smtp_tls_loglevel = 1
+smtp_tls_CApath = /etc/ssl/certs
+
+# TLS generic options
+tls_random_source=dev:/dev/urandom
+
+# Us
+myorigin = /etc/mailname
+myhostname = {{ inventory_hostname }}
+alias_maps =
+{% if enable_mailman %}
+    hash:/var/lib/mailman/data/aliases,
+{% endif %}
+    hash:/etc/aliases
+#alias_database = hash:/etc/aliases
+mydestination = localhost.localdomain, localhost, {% for ldomain in local_domains %}{{ ldomain }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+relayhost =
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 {% for mynet in postfix_mynetworks %}{{ mynet }}{% if not loop.last %} {% endif %}{% endfor %}
+
+mailbox_size_limit = {{ mailbox_size_limit }}
+mailbox_command = /usr/lib/dovecot/dovecot-lda -f "$SENDER" -a "$RECIPIENT"
+home_mailbox = {{ postfix_home_mailbox }}/
+recipient_delimiter = +
+virtual_transport = lmtp:unix:private/dovecot-lmtp
+inet_interfaces = all
+inet_protocols = all
+maximal_queue_lifetime = 7d
+
+# Other stuff
+virtual_mailbox_limit = 0
+
+{% if postfix_relay_domains is defined %}
+relay_domains =
+{% for relay_domain in postfix_relay_domains %}
+    {{ relay_domain }}{% if not loop.last %}, {% endif %}
+{% endfor %}
+
+relay_recipient_maps = {{ postfix_relay_recipient_maps }}
+
+transport_maps = hash:/etc/postfix/transport
+{% endif %}
+
+{% if postfix_virtual_alias_domains is defined or enable_mailman %}
+virtual_alias_domains =
+{% if postfix_virtual_alias_domains is defined and not enable_mailman %}
+{% for virt in postfix_virtual_alias_domains %}
+    {{ virt }}{% if not loop.last %}, {% endif %}
+{% endfor %}
+{% elif postfix_virtual_alias_domains is defined and enable_mailman %}
+{% for virt in postfix_virtual_alias_domains %}
+    {{ virt }}, 
+{% endfor %}
+    {{ mailman_domain }}
+
+virtual_alias_maps =
+    hash:/etc/postfix/virtusertable,
+    hash:/var/lib/mailman/data/virtual-mailman
+{% else %}
+    {{ mailman_domain }}
+
+virtual_alias_maps = hash:/var/lib/mailman/data/virtual-mailman
+{% endif %}
+{% endif %}
+
+# Authenticate clients with SASL
+smtpd_sasl_local_domain = $myhostname
+smtpd_sasl_auth_enable = yes
+broken_sasl_auth_clients = yes
+smtpd_sasl_authenticated_header = yes
+
+smtp_sasl_security_options = noanonymous
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = private/auth
+
+# Restrictions
+smtpd_helo_required = yes
+strict_rfc821_envelopes = yes
+disable_vrfy_command = yes
+
+# This is the maximum time the spawned processes can live for
+# (default is 1000s, which is too short)
+policy-spf_time_limit = 3600s
+
+smtpd_sender_restrictions =
+    check_sender_access regexp:/etc/postfix/tag_as_originating,
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    check_sender_access regexp:/etc/postfix/tag_as_foreign,
+    reject_unknown_sender_domain
+
+
+smtpd_recipient_restrictions =
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    reject_non_fqdn_helo_hostname,
+    reject_non_fqdn_sender,
+    reject_unknown_recipient_domain,
+    reject_unauth_destination,
+    reject_unknown_sender_domain,
+    reject_unauth_pipelining,
+    check_policy_service unix:private/policy-spf,
+    #check_policy_service inet:127.0.0.1:10023,
+    permit
+
+smtpd_helo_restrictions =
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    reject_non_fqdn_hostname,
+    reject_invalid_hostname,
+    permit
+
+# Force incoming mail to go through Amavis
+content_filter = smtp-amavis:[127.0.0.1]:10024
+header_checks = regexp:/etc/postfix/header_checks
+receive_override_options = no_address_mappings
+ 
+smtpd_relay_restrictions =
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    reject_unauth_pipelining,
+    defer_unauth_destination

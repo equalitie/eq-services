@@ -1,0 +1,233 @@
+---
+- name: Install postfix
+  become: true
+  apt:
+    name:
+      - postfix
+      - ssl-cert
+    state: present
+
+- name: Install packages for smart host
+  become: true
+  apt:
+    name:
+      - amavisd-new
+      - altermime
+      - lzop
+      - rpm
+      - nomarch
+      - p7zip-full
+      - arj
+      - cabextract
+      - razor
+      - pyzor
+      - clamav
+      - clamav-freshclam
+      - clamav-daemon
+      - clamav-unofficial-sigs
+      - spamassassin
+      - postfix-policyd-spf-python
+      #- p7zip-rar
+      #- ripole
+    state: present
+
+- name: install /etc/mailname
+  become: true
+  template:
+    src: postfix/mailname.j2
+    dest: /etc/mailname
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    -  restart postfix
+
+- set_fact:
+    all_local: "{{ local_domains + postfix_virtual_alias_domains }}"
+
+- name: amavisd-new config
+  become: true
+  template:
+    src: postfix/amavisd-50_user.j2
+    dest: /etc/amavis/conf.d/50-user
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart amavis-new
+
+- name: create dkim directory
+  become: true
+  file:
+    path: /etc/postfix/dkim
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: create dkim keys if not already created
+  become: true
+  command: "openssl genrsa -out /etc/postfix/dkim/dkim-{{ item }}-{{ dkim_key_size }}.pem {{ dkim_key_size }}"
+  args:
+    creates: "/etc/postfix/dkim/dkim-{{ item }}-{{ dkim_key_size }}.pem"
+  loop: "{{ dkim_domains }}"
+  notify:
+    -  restart postfix
+
+# to get key for DNS TXT record "amavisd-new showkeys"
+
+- name: add amavis group to clamav
+  become: true
+  user:
+    name: clamav
+    groups: amavis
+    append: yes
+  notify:
+    - restart clamav-daemon
+    - restart clamav-freshclam
+
+- name: configure/register razor for amavis
+  become: true
+  become_user: amavis
+  shell: "{{ item.cm }}"
+  args:
+    creates: "{{ item.cr }}"
+  loop:
+    - { cm: "razor-admin -create", cr: "/var/lib/amavis/.razor/servers.catalogue.lst" }
+    - { cm: "razor-admin -register", cr: "/var/lib/amavis/.razor/identity" }
+    - { cm: "pyzor discover", cr: "/run/every/time" }
+  ignore_errors: True
+  register: razor_results
+  tags:
+    - razor
+    - pyzor
+
+- name: install postfix postfix-tag_as_
+  become: true
+  template:
+    src: "postfix/postfix-tag_as_{{ item }}.j2"
+    dest: "/etc/postfix/tag_as_{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - originating
+    - foreign
+  notify:
+    - restart postfix
+
+- name: install postfix header_checks
+  become: true
+  template:
+    src: postfix/postfix-header_checks.j2
+    dest: /etc/postfix/header_checks
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart postfix
+
+- name: create dhparam.pem
+  become: true
+  command: "openssl dhparam -out /etc/ssl/dhparam-{{ item }}.pem {{ item }}"
+  args:
+    creates: /etc/ssl/dhparam-{{ item }}.pem
+  loop:
+    - '2048'
+    - '512'
+  notify:
+    - restart postfix
+
+- name: install postfix main.cf
+  become: true
+  template:
+    src: postfix/postfix-main.cf.j2
+    dest: /etc/postfix/main.cf
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart postfix
+    - regenerate aliases
+  tags:
+    - postfix_config
+
+- name: install postfix master.cf
+  become: true
+  template:
+    src: postfix/postfix-master.cf.j2
+    dest: /etc/postfix/master.cf
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart postfix
+    - regenerate aliases
+    - regenerate maps
+  tags:
+    - postfix_config
+
+- name: install postfix virtusertable
+  become: true
+  template:
+    src: postfix/postfix-virtusertable.j2
+    dest: /etc/postfix/virtusertable
+    owner: root
+    group: root
+    mode: '0644'
+  when: postfix_virtual_alias_domains is defined
+  notify:
+    - restart postfix
+    - regenerate maps
+
+- name: install postfix transport
+  become: true
+  template:
+    src: postfix/postfix-transport.j2
+    dest: /etc/postfix/transport
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - regenerate maps
+
+- name: ufw allow postfix
+  become: true
+  ufw:
+    rule: allow
+    name: "{{ item }}"
+  with_items:
+    - "Postfix"
+    - "Postfix Submission"
+#   - "Postfix SMTPS"
+
+- name: aliases
+  become: true
+  template:
+    src: postfix/postfix-aliases.j2
+    dest: /etc/aliases
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - regenerate aliases
+  tags:
+    - aliases
+
+- name: clamd.conf.j2 install
+  become: true
+  template:
+    src: postfix/clamd.conf.j2
+    dest: /etc/clamav/clamd.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart clamav-daemon
+    - restart clamav-freshclam
+  tags:
+    - clamav_config
+
+- debug:
+    msg: "The razor commands failed. Probably Sourcforge Down again {{razor_results.sdterr}}"
+  when: razor_results.sdterr is defined

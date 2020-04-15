@@ -1,0 +1,125 @@
+---
+- hosts: cityhall
+  gather_facts: yes
+  vars:
+    - init_play: yes
+
+  vars_prompt:
+    - name: 'org_name'
+      prompt: 'Enter organization name'
+      default: 'eQualit.ie'
+      private: no
+
+    - name: 'site_domain'
+      prompt: 'Enter site root domain name'
+      default: 'equalit.ie'
+      private: no
+
+    - name: 'deflect_site_domain'
+      prompt: 'Enter deflect root domain name'
+      default: 'deflect.ca'
+      private: no
+
+    - name: 'admin_email'
+      prompt: 'Enter default admin email'
+      default: 'admin@equalit.ie'
+      private: no
+
+    - name: 'deflect_gpg_key_email'
+      prompt: 'Enter email of Deflect gpg key'
+      default: 'admin@equalit.ie'
+      private: no
+
+    - name: 'site_nameservers_ip_list'
+      prompt: 'Enter comma serparated nameservers ip list' 
+      default: '8.8.8.8, 8.8.4.4, 1.1.1.1'
+      private: no
+
+    - name: 'timezone'
+      prompt: 'Enter Global Timezone'
+      default: 'Etc/UTC'
+      private: no
+
+    - name: 'opsdash_url'
+      prompt: 'What is your Elasticsearch host'
+      default: 'es.deflect.ca'
+      private: no
+
+    - name: 'opsdash_auth_string'
+      prompt: 'What is your Elasticsearch host connect auth string'
+      default: 'elastic:somerealsecretepassstringthatnoonewilleverbruteforce'
+      private: no
+
+    - name: 'dashboard_remote_yml_file_path'
+      prompt: 'Full path to site.yml on dashboard server'
+      default: '/var/www/config/site.yml'
+      private: no
+
+    - name: 'dashboard_host'
+      prompt: 'dashboard host to ssh to'
+      default: 'dashboard.deflect.ca'
+      private: no
+
+    - name: 'dashboard_ssh_port'
+      prompt: 'ssh port for dashboard'
+      default: '22'
+      private: no
+
+    - name: 'dashboard_remote_yml_cmd'
+      prompt: 'Full command to retrieve the dashboard .yml file'
+      default: 'curl -u dashboard:somesecrtpass https://dashboard.deflect.ca/config/site.yml'
+      private: no
+
+    - name: 'autodeflect_api_user'
+      prompt: 'api user name'
+      default: 'autodeflect_api_user'
+      private: no
+
+    - name: 'autodeflect_api_site'
+      prompt: 'autodeflect api site domain name'
+      default: 'api.deflect.ca'
+      private: no
+
+    - name: 'edgemanage_ns_servers_list'
+      prompt: 'List Deflect Upstream NS Servers. Comma Separated'
+      default: 'dns2.example.com., dns1.example.com.'
+      private: no
+
+    - name: 'edgemanage_soa_nameserver'
+      prompt: 'What is the edgemanage SOA NS'
+      default: 'dns0.example.com.'
+      private: no
+
+    - name: 'edgemamange_soa_mailbox'
+      prompt: 'What is the edgemanage SOA mailbox'
+      default: 'zone.example.com.'
+      private: no
+
+    - name: nrpe_allow_ip
+      prompt: "Add the IPs allowed to run nagios nrpe commands (comma separated) "
+      default: "127.0.0.1,127.0.0.2"
+      private: no
+
+    - name: icinga_web_domain
+      prompt: "What is the Icingaweb site domain name"
+      default: 'icingaweb.example.co'
+      private: no
+
+    - name: "smtp_server"
+      prompt: "Outgoing SMTP Server"
+      default: ""
+      private: no
+
+    - name: "smtp_email_user"
+      prompt: "Outgoing SMTP Email User"
+      default: ""
+      private: no
+
+    - name: "smtp_email_passwd"
+      prompt: "Outgoing SMTP Email Passwd"
+      default: ""
+      private: yes
+
+  roles:
+    - setup
+    - ansible

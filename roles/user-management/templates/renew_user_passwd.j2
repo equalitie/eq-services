@@ -1,0 +1,43 @@
+#!/bin/bash
+# {{ ansible_managed }}
+
+if [ -z "$1" ]
+then
+  echo "Usage: $0 username"
+  exit
+fi
+
+{% if use_pwpusher %}
+USE_PWPUSHER=true
+{% else %}
+USE_PWPUSHER=false
+{% endif %}
+
+PWPUSHER_DAYS="{{ pwpusher_days }}"
+PWPUSHER_VIEWS="{{ pwpusher_views }}"
+PWPUSHER_URL="{{ pwpusher_url }}"
+MIN={{ passwd_minlen }}
+MAX={{ passwd_maxlen }}
+
+PWLEN=0
+while [ $PWLEN -lt $MIN ]
+do
+  PWLEN=$((RANDOM % MAX))
+done
+
+PASSWD=$(< /dev/urandom tr -dc A-Za-z0-9 | head -c${PWLEN})
+
+# get sha512
+PWSHA512=$(openssl passwd -6 $PASSWD)
+
+echo $1:$PWSHA512 | chpasswd -e
+
+echo -n "$1,"
+
+if $USE_PWPUSHER
+then
+  PWPUSH=$(curl -s --data "cred=${PASSWD}&time=${PWPUSHER_DAYS}&units=days&views=${PWPUSHER_VIEWS}&url_only=yes" $PWPUSHER_URL)
+  echo $PWPUSH
+else
+  echo $PASSWD
+fi

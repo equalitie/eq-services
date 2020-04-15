@@ -1,0 +1,82 @@
+---
+- name: Install dovecot
+  apt:
+    name:
+      - dovecot-core
+      - dovecot-imapd
+      - dovecot-pop3d
+      - dovecot-lmtpd
+      - dovecot-sieve
+      - dovecot-managesieved
+    state: present
+  become: true
+
+- name: install dovecot.conf
+  become: true
+  template:
+    src: dovecot/dovecot.conf.j2
+    dest: /etc/dovecot/dovecot.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart dovecot
+
+- name: install dovecot/conf.d/ files
+  become: true
+  template:
+    src: "dovecot/{{ item }}.j2"
+    dest: "/etc/dovecot/conf.d/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - 10-auth.conf
+    - 10-master.conf
+    - 10-mail.conf
+    - 10-ssl.conf
+    - 15-lda.conf
+    - 15-mailboxes.conf
+    - 20-lmtp.conf
+    - 90-sieve.conf
+  notify:
+    - restart dovecot
+
+- name: create sieve directory
+  become: true
+  file:
+    path: /var/lib/dovecot/sieve
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: add spam.sieve filter
+  become: true
+  template:
+    src: dovecot/spam.sieve.j2
+    dest: /var/lib/dovecot/sieve/spam.sieve
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - compile sieve
+
+- name: Restart Service dovecot
+  become: true
+  systemd:
+    daemon_reload: yes
+    state: started
+    enabled: yes
+    name: dovecot
+
+- name: ufw allow dovecot
+  become: true
+  ufw:
+    rule: allow
+    name: "{{ item }}"
+  loop:
+    - "Dovecot POP3"
+    - "Dovecot Secure POP3"
+    - "Dovecot IMAP"
+    - "Dovecot Secure IMAP"

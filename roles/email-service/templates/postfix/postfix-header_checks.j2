@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+{% if hideclient %}
+/^Received: .*/     IGNORE
+/^X-Originating-IP:/    IGNORE
+{% endif %}
+{% if not hideclient and hideprivate %}
+/^Received: from \[192\.168.*\] (.+$)/          REPLACE Received: from [24-bit] $1
+/^Received: from \[10\..*\] (.+$)/              REPLACE Received: from [20-bit] $1
+/^Received: from \[172\.(1[6-9]{1}|2[0-9]{1}|3[0-1]{1})\..*\] (.+$)/    REPLACE Received: from [16-bit]
+{% endif %}

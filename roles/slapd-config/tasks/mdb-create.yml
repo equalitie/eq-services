@@ -1,0 +1,11 @@
+---
+- name: Create MDB database
+  become: true
+  command: >
+    /usr/local/bin/slapd-mdb-create "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "{{ slapd_mdb_config.olcSuffix | mandatory }}" "{{ slapd_mdb_dir }}"
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout | default('')"
+

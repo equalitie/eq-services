@@ -1,0 +1,27 @@
+---
+
+- name: install Icinga2 Web nginx site
+  template:
+    src: icinga_nginx_site.conf.j2
+    dest: /etc/nginx/sites-available/icinga_nginx_site.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify:
+    - 'reload nginx'
+  tags:
+    - icinga_nginx
+
+- name: enable Icinga2 Web nginx site
+  file:
+    src: /etc/nginx/sites-available/icinga_nginx_site.conf
+    dest: /etc/nginx/sites-enabled/icinga_nginx_site.conf
+    state: link
+  become: true
+  notify:
+    - 'reload nginx'
+  tags:
+    - icinga_nginx
+
+# TODO: add notify to reload/restart nginx

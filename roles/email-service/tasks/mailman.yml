@@ -1,0 +1,72 @@
+---
+- name: install mailman
+  become: true
+  apt:
+    name: mailman
+    state: present
+  tags:
+    - mailman
+
+- name: set site_languages 
+  become: true
+  debconf:
+    name: mailman
+    question: mailman/site_languages
+    value: "{% for lang in mailman_languages %}{{ lang }}{% if not loop.last %}, {% endif %}{% endfor %}"
+    vtype: multiselect
+  register: site_languages
+  tags:
+    - mailman
+
+- name: set default_server_language
+  become: true
+  debconf:
+    name: mailman
+    question: mailman/default_server_language
+    value: "{{ mailman_default_language }}"
+    vtype: select
+  register: default_server_language
+  tags:
+    - mailman
+
+- name: reconfigure mailman if changed
+  become: true
+  command: /usr/sbin/dpkg-reconfigure --frontend noninteractive mailman
+  when: site_languages is changed or default_server_language is changed
+  tags:
+    - mailman
+
+- name: configure mailman
+  become: true
+  template:
+    src: 'mailman/mm_cfg.py.j2'
+    dest: '/etc/mailman/mm_cfg.py'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  tags:
+    - mailman
+  notify:
+    - restart mailman
+
+- name: search for mailing lists called Mailman
+  become: true
+  command: 'list_lists | grep Mailman | cat'
+  register: mailman_list_exists
+  when: True
+  tags:
+    - mailman
+
+- name: create first mailing list if it does not exist
+  become: true
+  command: 'newlist --quiet --urlhost={{ mailman_domain }} Mailman
+            {{ mailman_admin_email }} {{ mailman_admin_password }}'
+  when: not 'Mailman' in mailman_list_exists.stdout
+  tags:
+    - mailman
+
+- name: always run genaliases for mailman aliases
+  become: true
+  command: /var/lib/mailman/bin/genaliases
+  tags:
+    - mailman

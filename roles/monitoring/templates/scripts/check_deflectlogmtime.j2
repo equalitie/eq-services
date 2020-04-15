@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# check the mtime on the deflect.log
+# if the file is over 60 seconds old, warn
+# over 1hour, crit
+
+exitwarn() { echo "LogTime CRIT: deflect.log not found! at $DEFLECT_LOG" ; exit 2 ; }
+
+DEFLECT_LOG={{TSPATH}}/logs/deflect.log
+[ -f $DEFLECT_LOG ] || exitwarn
+
+MTIME=$(/usr/bin/stat --format=%Y $DEFLECT_LOG)
+TIME=$(date +%s)
+TIMEDIFF=$(($TIME - $MTIME))
+
+if [ $TIMEDIFF -gt 1800 ] ; then
+  echo "LogTime CRIT: deflect.log not update for $TIMEDIFF seconds"
+  exit 2
+ elif [ $TIMEDIFF -gt 60 ] ; then
+  echo "LogTim WARN: deflect.log not update for $TIMEDIFF seconds"
+  exit 1
+ else
+  echo "LogTime OK: deflect.log updated $TIMEDIFF seconds ago"
+  exit 0
+fi

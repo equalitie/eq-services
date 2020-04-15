@@ -1,0 +1,49 @@
+# -*- python -*-
+# {{ ansible_managed }}
+
+{# Copyright (C) 1998,1999,2000 by the Free Software Foundation, Inc.
+ #
+ # This program is free software; you can redistribute it and/or
+ # modify it under the terms of the GNU General Public License
+ # as published by the Free Software Foundation; either version 2
+ # of the License, or (at your option) any later version.
+ # 
+ # This program is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+ # 
+ # You should have received a copy of the GNU General Public License
+ # along with this program; if not, write to the Free Software 
+ # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ # 02110-1301 USA
+ #}
+
+from Defaults import *
+
+# See Mailman/Defaults.py for explanations of the values.
+# Do not edit this direct. {{ ansible_managed }}
+
+MAILMAN_SITE_LIST = 'mailman'
+DEFAULT_URL_PATTERN = 'http://%s/cgi-bin/mailman/'
+IMAGE_LOGOS         = '/images/mailman/'
+DEFAULT_EMAIL_HOST = '{{ mailman_domain }}'
+DEFAULT_URL_HOST   = '{{ mailman_domain }}'
+DEFAULT_SERVER_LANGUAGE = '{{ mailman_default_language[:2] }}'
+USE_ENVELOPE_SENDER    = 0
+PUBLIC_ARCHIVE_URL  = 'https://%(hostname)s/pipermail/%(listname)s'
+PRIVATE_ARCHIVE_URL = '/mailman/private/'
+DEFAULT_ARCHIVE = Off
+# 0=public, 1=private
+DEFAULT_ARCHIVE_PRIVATE = 1
+ARCHIVE_TO_MBOX = -1
+RESPONSE_INCLUDE_LEVEL = 0
+DEFAULT_RESPOND_TO_POST_REQUESTS = No
+DEFAULT_SEND_REMINDERS = No
+DEFAULT_SEND_WELCOME_MSG = No
+DEFAULT_SEND_GOODBYE_MSG = No
+
+MTA = 'Postfix'
+POSTFIX_STYLE_VIRTUAL_DOMAINS = ['{{ mailman_domain }}']
+
+add_virtualhost(DEFAULT_URL_HOST, DEFAULT_EMAIL_HOST)

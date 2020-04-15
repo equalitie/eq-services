@@ -1,0 +1,34 @@
+---
+- name: Hash MDB password
+  become: true
+  command: >
+    /usr/local/bin/slapd-password-hash "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "olcDatabase={2}mdb,cn=config" "olcRootPW"
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+    newpw: "{{ slapd_mdb_rootdn_password | mandatory }}"
+  register: hashedMdbPassword
+  changed_when: false
+
+- name: Apply MDB configuration
+  become: true
+  command: >
+    /usr/local/bin/slapd-attribute-upsert "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "olcDatabase={2}mdb,cn=config"
+    "{{ item.key }}" {% if item.value is iterable and item.value is not string %}"{{ item.value | join('" "') }}"{% else %}"{{ item.value }}"{% endif %}
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout | default('')"
+  with_dict: "{{ default_mdb_config | combine(slapd_mdb_config) }}"
+
+- name: Clean unknown MDB config items
+  become: true
+  command: >
+    /usr/local/bin/slapd-olc-attribute-clean "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "olcDatabase={2}mdb,cn=config"
+    "{{ default_mdb_config | combine(slapd_mdb_config) | join('" "') }}"
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout | default('')"

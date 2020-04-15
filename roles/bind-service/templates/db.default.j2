@@ -1,0 +1,32 @@
+; {{ansible_managed}}
+$TTL 1h ; sets the default time-to-live for this zone
+; name ttl class rr    name-server                 email-addr  (sn ref ret ex min)
+@ {{config[item.name]["soa"]["value"][0]}}	IN SOA {{config[item.name]["soa"]["value"][1]}} {{config[item.name]["soa"]["value"][2]}} (
+				{{ ansible_date_time['epoch'] }} ; Serial
+				1h		; ref = refresh
+				15M		; ret = update retry
+				4W		; ex = expiry
+				1h		; min = minimum
+				)
+
+{% for domain, entries in config[item.name]["dns_records"] | dictsort %}
+{% for entry in entries %}
+{% if entry["type"] == "NS" %}
+{{domain}}			{{entry["value"][0]}}	IN NS {{entry["value"][1]}}
+{% elif entry["type"] == "MX" %}
+{{domain}}			{{entry["value"][0]}}	IN MX {{entry["value"][1]}} {{entry["value"][2]}}
+{% elif entry["type"] == "A" %}
+{{domain}}			{{entry["value"][0]}}	IN A {{entry["value"][1]}}
+{% elif entry["type"] == "AAAA" %}
+{{domain}}			{{entry["value"][0]}}	IN A {{entry["value"][1]}}
+{% elif entry["type"] == "CNAME" %}
+{{domain}}			{{entry["value"][0]}}	IN CNAME {{entry["value"][1]}}
+{% elif entry["type"] == "TXT" %}
+{{domain}}			{{entry["value"][0]}}	IN TXT {{entry["value"][1]}}
+{% elif entry["type"] == "SRV" %}
+{{domain}}			{{entry["value"][0]}}	IN SRV {{entry["value"][1]}} {{entry["value"][2]}} {{entry["value"][3]}} {{entry["value"][4]}}
+{% elif entry["type"] == "PTR" %}
+{{domain}}			{{entry["value"][0]}}	IN PTR {{entry["value"][1]}}
+{% endif %}
+{% endfor %}
+{% endfor %}

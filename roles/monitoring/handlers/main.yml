@@ -1,0 +1,19 @@
+---
+- name: start icinga2
+  become: yes
+  systemd:
+    name: icinga2
+    state: started
+    enabled: yes
+
+- name: reload icinga2
+  become: yes
+  systemd:
+    name: icinga2
+    state: reloaded
+
+- name: restart icinga2
+  become: yes
+  systemd:
+    name: icinga2
+    state: restarted

@@ -1,0 +1,41 @@
+---
+org_name: "{{ org_name }}"
+site_domain: "{{ site_domain }}"
+site_nameservers_ip: [ {{site_nameservers_ip_list}} ]
+timezone: "{{ timezone }}"
+admin_email: "{{ admin_email }}"
+deflect_site_domain: "{{ deflect_site_domain }}"
+deflect_gpg_key_email: "{{deflect_gpg_key_email}}"
+opsdash_url: "{{opsdash_url}}"
+opsdash_auth_string: "{{opsdash_auth_string}}"
+dashboard_remote_yml_file_path: "{{dashboard_remote_yml_file_path}}"
+dashboard_remote_yml_cmd: {{dashboard_remote_yml_cmd | quote}}
+dashboard_ssh_port: "{{dashboard_ssh_port}}"
+dashboard_host: "{{dashboard_host}}"
+autodeflect_api_user: "{{autodeflect_api_user}}"
+php_version: "{{php_version}}"
+autodeflect_api_site: "{{autodeflect_api_site}}"
+edgemanage_ns_servers: [ {{edgemanage_ns_servers_list}} ]
+edgemanage_soa_nameserver: "{{edgemanage_soa_nameserver}}"
+edgemamange_soa_mailbox: "{{edgemamange_soa_mailbox}}"
+deflect_controller_root: "{{deflect_controller_root}}"
+cityhall_ipv4: "{{hostvars[groups['cityhall'][0]]['ansible_default_ipv4']['address']}}/32"
+nrpe_allow_ip: "{{nrpe_allow_ip | replace(' ', '')}}"
+icinga_web_domain: "{{ icinga_web_domain }}"
+
+deflect_user_passwd: "{{ rand_result.results[0].stdout }}"
+edge_user_passwd: "{{ rand_result.results[1].stdout }}"
+autodeflect_api_pass: "{{ rand_result.results[2].stdout }}"
+edge_encfs_passphrase: "{{ rand_result.results[3].stdout }}"
+icinga2_db_user_password: "{{ rand_result.results[4].stdout }}"
+icinga2_web_db_user_password: "{{ rand_result.results[5].stdout }}"
+icinga2_ticketsalt: "{{ rand_result.results[6].stdout }}"
+icinga2web_admin_pass: "{{ rand_result.results[7].stdout }}"
+
+smtp_email_user: "{{smtp_email_user}}"
+smtp_email_passwd: "{{smtp_email_passwd}}"
+smtp_server: "{{smtp_server}}"
+smtp_port: "587"
+
+use_pwpuser: false
+pwpusher_url: ""

@@ -1,0 +1,31 @@
+---
+- hosts: cityhall
+  gather_facts: false
+
+  vars_prompt:
+    - name: 'redmine_sites'
+      prompt: 'Site hostnames, space separated if more than one'
+      default: 'tickets.site.co tickets.site2.co'
+      private: no
+
+  tasks:
+    - name: generate random strings for passwords
+      local_action: shell < /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c {{ item.size }}
+      register: rand_result
+      loop:
+        - { size: '{{25|random(20,1)}}' }
+        - { size: '{{40|random(30,1)}}' }
+
+    - set_fact:
+        postgresql_redmine_user_pass: "{{ rand_result.results[item].stdout }}"
+      with_random_choice:
+        - 0
+        - 1
+
+    - name: create group_vars/redmine_server.yml
+      template:
+        src: roles/redmine/templates/redmine_server.yml.j2
+        dest: config/group_vars/redmine_server.yml
+
+    - debug:
+        msg: "You can now edit group_vars/redmine_server.yml and add server to the inventory"

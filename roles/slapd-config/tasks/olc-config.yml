@@ -1,0 +1,34 @@
+---
+- name: Hash OLC password
+  become: true
+  command: >
+    /usr/local/bin/slapd-password-hash "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "olcDatabase={0}config,cn=config" "olcRootPW"
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+    newpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: hashedOLCPassword
+  changed_when: false
+
+- name: Apply OLC configuration
+  become: true
+  command: >
+    /usr/local/bin/slapd-attribute-upsert "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "olcDatabase={0}config,cn=config"
+    "{{ item.key }}" {% if item.value is iterable and item.value is not string %}"{{ item.value | join('" "') }}"{% else %}"{{ item.value }}"{% endif %}
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout | default('')"
+  with_dict: "{{ default_olc_config | combine(slapd_olc_config) }}"
+
+- name: Clean unknown OLC config items
+  become: true
+  command: >
+    /usr/local/bin/slapd-olc-attribute-clean "{{ slapd_ldapi_socket | urlencode() | regex_replace('/', '%2F') }}" "{{ slapd_olc_rootdn }}"
+    "olcDatabase={0}config,cn=config"
+    "{{ default_olc_config | combine(slapd_olc_config) | join('" "') }}"
+  environment:
+    bindpw: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: out
+  changed_when: "'CHANGED' in out.stdout | default('')"

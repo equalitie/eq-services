@@ -1,0 +1,13 @@
+/**
+ * {{ansible_managed}}
+ *
+ * The ApiUser objects are used for authentication against the API.
+ *
+ * Used for the master node here
+ */
+object ApiUser "root" {
+  //password = "xxxcl;dsmkfmedkmvkefm"
+  client_cn = "{{ansible_fqdn}}"
+
+  permissions = [ "*" ]
+}

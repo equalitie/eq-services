@@ -1,0 +1,11 @@
+---
+- name: restart mumble
+  become: true
+  systemd:
+    name: mumble-server
+    state: restarted
+
+- name: reload ufw
+  become: yes
+  ufw:
+    state: reloaded

@@ -1,0 +1,36 @@
+---
+icinga_user: nagios
+icinga_group: nagios
+icinga_lib_dir: /usr/lib
+icinga_conf_dir: /etc/icinga2
+icinga_apt_key: "https://packages.icinga.com/icinga.key"
+icinga_apt_url: "deb http://packages.icinga.com/{{ ansible_distribution|lower }} icinga-{{ ansible_distribution_release }} main"
+graphite_git_repo: "https://github.com/Icinga/icingaweb2-module-graphite.git"
+graphite_web_git_repo: "https://github.com/graphite-project/graphite-web.git"
+
+icinga_include_plugins:
+  - "itl"
+  - "plugins"
+  - "plugins-contrib"
+icinga_default_constants:
+  NodeName: "{{ ansible_fqdn }}"
+  TicketSalt: "{{icinga2_ticketsalt}}"
+  PluginDir: "{{ icinga_lib_dir }}/nagios/plugins"
+  ManubulonPluginDir: "{{ icinga_lib_dir }}/nagios/plugins"
+  PluginContribDir: "{{ icinga_lib_dir }}/nagios/plugins"
+
+icinga_enabled_features:
+  - checker
+  - notification
+  - mainlog
+  - ido-pgsql
+  - command
+  - api
+  - perfdata
+  - graphite
+
+icinga_custom_constants: {}
+
+icinga_features_available_dir: "{{ icinga_conf_dir }}/features-available"
+icinga_features_enabled_dir: "{{ icinga_conf_dir }}/features-enabled"
+icinga_constants: "{{ icinga_default_constants | combine(icinga_custom_constants) }}"

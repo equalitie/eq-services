@@ -1,0 +1,37 @@
+// {{ansible_managed}}
+// {{ ansible_date_time['epoch'] }}
+{% for zone in zones %}
+{% if bind_type is defined and bind_type == 'master' %}
+zone "{{ zone.name }}" {
+        type master;
+        file "{{zone_files_path}}/master/db.{{ zone.name }}";
+{% if zone.allow_query is defined %}
+        allow-query { 127.0.0.1; {% for z_query in zone.allow_query %}{{ z_query }}; {% endfor %} };
+{% else %}
+        allow-query { any; };
+{% endif %}
+        also-notify { {% for slave in slaves %}{{slave}}; {% endfor %} };
+        allow-transfer { transfer-peers; };
+};
+{% elif bind_type is defined and bind_type == 'slave' %}
+zone "{{ zone.name }}" {
+        type slave;
+        file "{{zone_files_path}}/slave/db.{{ zone.name }}";
+        masters {
+{% for master in masters %}
+                        {{master}};
+{% endfor %}
+        };
+        notify no;
+{% if zone.allow_query is defined %}
+        allow-query { 127.0.0.1; {% for z_query in zone.allow_query %}{{ z_query }}; {% endfor %} };
+{% else %}
+        allow-query { any; };
+{% endif %}
+        allow-transfer { none; };
+};
+{% endif %}
+{% endfor %}
+{% if enable_edgemanage is defined and enable_edgemanage %}
+include "/etc/bind/named.conf.local.edgemanage";
+{% endif %}

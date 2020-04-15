@@ -1,0 +1,25 @@
+---
+ansible_installed_comment: "DO NOT REMOVE THIS FILE UNLESS YOU KNOW WHAT YOU ARE DOING"
+redmine_root: '/var/www/redmine'
+redmine_subversion_branch: '4.1-stable'
+redmine_subversion: "https://svn.redmine.org/redmine/branches/{{ redmine_subversion_branch }}"
+passenger_key_server: 'keyserver.ubuntu.com'
+passenger_key: '561F9B9CAC40B2F7'
+passenger_rep: 'deb https://oss-binaries.phusionpassenger.com/apt/passenger buster main'
+redmine_user: 'redmine'
+redmine_group: 'redmine'
+postgresql_redmine_user: 'redmine'
+postgresql_redmine_db: 'redmine_db'
+redmine_default_lang: 'en'
+postgresql_version: '11'
+redmine_bots_repo: 'https://github.com/southbridgeio/redmine_bots.git'
+sb_redmine_2fa: false
+sb_redmine_2fa_repo: 'https://github.com/southbridgeio/redmine_2fa.git'
+wiki_improvements: true
+redmine_cozy_wiki_macros_repo: 'https://github.com/torutk/redmine_cozy_wiki_macros.git'
+redmine_related_wiki_repo: 'https://github.com/taikii/redmine_related_wiki.git'
+redmine_callout_macro_repo: 'https://github.com/taikii/redmine_callout_macro.git'
+redmine_messenger: true
+redmine_messenger_repo: 'https://github.com/AlphaNodes/redmine_messenger.git'
+redmine_wktime: true
+redmine_wktime_repo: 'https://github.com/dhanasingh/redmine_wktime.git'

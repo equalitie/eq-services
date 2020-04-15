@@ -1,0 +1,60 @@
+// {{ansible_managed}}
+{% for acl_name, entries in acl | dictsort %}
+acl {{acl_name}} {
+{% for entry in entries.ips %}
+        {{entry}};
+{% endfor %}
+}; 
+{% endfor %}
+// List other trusted name servers that are allowed to request zone transfers:
+acl transfer-peers {
+{% for peer in zone_transfer_peers %}
+        {{ peer }};
+{% endfor %}
+};
+
+// Suppress all of the "unexpected RCODE REFUSED" errors in syslog.
+logging {
+        category lame-servers {
+                null;
+        };
+};
+
+// Prevent 'named[xxxx]: connect(fe80::#53) 22/Invalid argument'
+// https://kb.isc.org/article/AA-00537/0/Why-does-named-log-error-22-Invalid-argument-quoting-an-IPv6-address-starting-with-fe80%3A-.html.
+
+server fe80::/16 { bogus yes; };
+
+options {
+        directory "{{zone_files_path}}";
+
+        forwarders {
+{% for forwarder in forwarders %}
+                {{ forwarder }};
+{% endfor %}
+        };
+
+        //========================================================================
+        // If BIND logs error messages about the root key being expired,
+        // you will need to update your keys.  See https://www.isc.org/bind-keys
+        //========================================================================
+
+        version "really";
+        dnssec-enable yes;
+        dnssec-validation yes;
+        dnssec-lookaside auto;
+{% if bind_type is defined and bind_type == 'master' %}
+        notify yes;
+{% endif %}
+
+        auth-nxdomain no;    # conform to RFC1035
+        listen-on { 127.0.0.1; {{ansible_default_ipv4.address}}; };
+        listen-on-v6 { any; };
+        recursion yes;
+        allow-recursion {
+                127.0.0.1;
+{% for acl_name in zone_recursion_acls %}
+                {{ acl_name }};
+{% endfor %}
+        };
+};

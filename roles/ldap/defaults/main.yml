@@ -1,0 +1,11 @@
+---
+ansible_installed_comment: "DO NOT REMOVE THIS FILE UNLESS YOU KNOW WHAT YOU ARE DOING"
+slapd_conf_dir: /etc/ldap
+slapd_mdb_dir: /var/lib/slapd
+slapd_user: openldap
+slapd_group: openldap
+slapd_olc_dir: "{{ slapd_conf_dir }}/slapd.d"
+slapd_run_dir: /run/slapd
+slapd_ldapi_socket: "{{ slapd_run_dir }}/ldapi"
+slapd_olc_rootdn: cn=root,cn=config
+slapd_schema_dir: "{{ slapd_conf_dir }}/schema"

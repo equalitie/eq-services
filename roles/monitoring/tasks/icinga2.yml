@@ -1,0 +1,163 @@
+---
+- name: Add Icinga repository key
+  become: yes
+  apt_key:
+    url: "{{ icinga_apt_key }}"
+    state: present
+
+- name: Add Icinga repository
+  become: yes
+  apt_repository:
+    repo: "{{ icinga_apt_url }}"
+    state: present
+
+- name: Ensure icinga is installed
+  become: yes
+  apt:
+    name: icinga2
+    state: present
+  notify:
+    - start icinga2
+    - restart icinga2
+
+- name: some plugins installed
+  become: yes
+  apt:
+    name:
+      - monitoring-plugins
+      - nagios-plugins-contrib
+      - nagios-nrpe-plugin
+      - libmonitoring-plugin-perl
+      - libreadonly-perl
+    state: present
+
+- name: Manage main Icinga configuration
+  become: yes
+  template:
+    src: icinga2.conf.j2
+    dest: "{{ icinga_conf_dir }}/icinga2.conf"
+    owner: "{{ icinga_user }}"
+    group: "{{ icinga_group }}"
+    mode: '0644'
+  notify:
+    - reload icinga2
+
+- name: Check for constants orig file
+  become: yes
+  stat:
+    path: "{{ icinga_conf_dir }}/constants.conf.orig"
+  register: sample_file
+
+- name: Copy original Icinga config to sample
+  become: yes
+  copy:
+    remote_src: true
+    src: "{{ icinga_conf_dir }}/constants.conf"
+    dest: "{{ icinga_conf_dir }}/constants.conf.orig"
+    owner: "{{ icinga_user }}"
+    group: "{{ icinga_group }}"
+    mode: '0644'
+  when: not sample_file.stat.exists
+  notify:
+    - restart icinga2
+
+- name: Manage Icinga constants
+  become: yes
+  template:
+    src: constants.conf.j2
+    dest: "{{ icinga_conf_dir }}/constants.conf"
+    owner: "{{ icinga_user }}"
+    group: "{{ icinga_group }}"
+    mode: '0644'
+  notify:
+    - reload icinga2
+
+- name: create certs directory
+  file:
+    path: /var/lib/icinga2/certs
+    owner: "{{icinga_user}}"
+    group: "{{icinga_group}}"
+    mode: '0755'
+    state: directory
+  become: yes
+
+- name: install api templates
+  template:
+    src: api.conf.j2
+    dest: "{{ icinga_features_available_dir }}/api.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify:
+    - reload icinga2
+
+- name: install zones.conf
+  template:
+    src: zones.conf.j2
+    dest: "{{ icinga_conf_dir }}/zones.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify:
+    - reload icinga2
+
+## NOTE: Make sure any templated file in icinga_features_available_dir is already deployed
+## at this time if needed. Next 2 lines will be enabling/disabling them with a link to
+## icinga_features_enabled_dir.
+## The features enabled are defined in default/main.yml -> icinga_enabled_features list 
+#
+- name: collect all enabled features
+  become: yes
+  find:
+    paths: "{{ icinga_features_enabled_dir }}/"
+    patterns: '*.conf'
+    file_type: any
+  register: enabled_features
+
+- name: set fact enabled_files
+  set_fact:
+    enabled_files: "{{ enabled_files|default([]) + [ item.path ] }}"
+  loop: "{{ enabled_features.files }}"
+
+- name: set fact managed_feature_files
+  set_fact:
+    managed_feature_files: "{{managed_feature_files|default([]) + [ icinga_features_enabled_dir + '/' + item + '.conf']}}"
+  loop: "{{icinga_enabled_features}}"
+
+- name: add managed features
+  become: yes
+  file:
+    src: "{{ icinga_features_available_dir }}/{{ item }}.conf"
+    dest: "{{icinga_features_enabled_dir}}/{{ item }}.conf"
+    state: link
+  loop: "{{ icinga_enabled_features }}"
+  notify: reload icinga2
+
+- name: removing unmanaged features
+  become: yes
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ enabled_files|default([]) }}"
+  notify: reload icinga2
+  when:
+    - item not in managed_feature_files
+
+- name: copy certs from controller
+  copy:
+    src: "config/icinga_certs/{{item.file}}"
+    dest: "/var/lib/icinga2/certs/{{item.file}}"
+    owner: "{{icinga_user}}"
+    group: "{{icinga_group}}"
+    mode: "{{item.mode}}"
+  become: yes
+  ignore_errors: yes
+  loop:
+    - { file: 'ca.crt', mode: '0644' }
+    - { file: "{{inventory_hostname}}.key", mode: '0600' }
+    - { file: "{{inventory_hostname}}.crt", mode: '0644' }
+
+- debug:
+    msg: "If you see errors above it is probably because you did not update icinga_server first to get host certs"

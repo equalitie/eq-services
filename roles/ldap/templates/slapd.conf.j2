@@ -1,0 +1,22 @@
+# {{ ansible_managed }}
+#
+# Default slapd configuration.
+# This file is not loaded by slapd, but used to convert it to OLC.
+# Do not modify this file, it will have no effect.
+#
+
+#####
+# PID and arguments
+#####
+
+pidfile  {{ slapd_run_dir }}/slapd.pid
+argsfile {{ slapd_run_dir }}/slapd.args
+
+#####
+# OLC
+#####
+
+database config
+rootdn   {{ slapd_olc_rootdn }}
+rootpw   {{ hashedPassword.stdout }}
+access   to * by * none

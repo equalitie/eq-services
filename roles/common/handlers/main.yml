@@ -1,0 +1,18 @@
+---
+# handlers file for common
+
+- name: Restart Service 'resolvconf'
+  systemd:
+    state: restarted
+    name: resolvconf
+  become: true
+
+- name: update tzdata
+  become: true
+  command: /usr/sbin/dpkg-reconfigure --frontend noninteractive tzdata
+
+- name: restart systemd-logind
+  systemd:
+    state: restarted
+    name: systemd-logind
+  become: yes

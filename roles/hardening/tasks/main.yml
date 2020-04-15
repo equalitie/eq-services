@@ -1,0 +1,132 @@
+---
+- name: install a few prerequisites
+  become: yes
+  apt:
+    name:
+      - ufw
+      - iptables
+      - iproute2
+    state: present
+  tags:
+    - firewall
+    - harden
+    - ufw
+
+- name: create config directory
+  file:
+    path: "config/{{item}}"
+    state: directory
+    mode: '0755'
+  when: inventory_hostname in groups.cityhall
+  loop:
+    - harden
+    - harden/ufw
+  run_once: yes
+  tags:
+    - firewall
+    - harden
+    - ufw
+
+- name: install templates
+  become: yes
+  template:
+    src: '{{item.src}}'
+    dest: '{{item.dest}}'
+    owner: root
+    group: root
+    mode: '{{item.mode}}'
+  register: ufw_config
+  loop:
+    - {src: 'default_ufw.j2', dest: '/etc/default/ufw', mode: '0644'}
+  tags:
+    - ufw
+
+- name: reset ufw if config files changed
+  become: yes 
+  ufw:
+    state: reset
+  tags:
+    - ufw
+  when: ufw_config is changed
+
+- name: important open limited ssh to controller for any
+  become: yes
+  ufw:
+    rule: limit
+    to_port: ssh
+    proto: tcp
+    to_ip: any
+    from_ip: any
+  when: inventory_hostname in groups.cityhall 
+  notify: reload ufw
+  tags:
+    - ufw
+
+- name: open ssh from controller
+  become: yes
+  ufw:
+    rule: allow
+    to_port: ssh
+    proto: tcp
+    to_ip: any
+    from_ip: "{{cityhall_ipv4}}"
+  when: inventory_hostname not in groups.cityhall
+  notify: reload ufw
+  tags:
+    - ufw
+
+- name: included in Deflect Edge only
+  include_tasks: deflect_edge.yml
+  when: inventory_hostname in groups.edges
+  tags:
+    - ufw
+    - edges_firewall
+
+- name: included in bind_service only
+  include_tasks: bind_service.yml
+  when: inventory_hostname in groups.bind_service
+  tags:
+    - ufw
+
+- name: create list of other groups allowed web
+  set_fact:
+    web_group: "{{groups.deflect_controller | union(groups.deflect_controller) | union(groups.icinga_server) | union(groups.letsencrypt_server) | union(groups.app_service) | union(groups.redmine_server) | default([])}}"
+  tags:
+    - ufw
+
+- name: allow some other groups to allow web
+  become: yes
+  ufw:
+    rule: allow
+    to_port: "{{item}}"
+    proto: tcp
+    to_ip: any
+    from_ip: any
+  when: inventory_hostname in web_group
+  notify: reload ufw
+  loop:
+    - "80"
+    - "443"
+  tags:
+    - ufw
+
+# TODO:
+#- name: get ip list of icinga_host
+#
+# For now let all in to port
+- name: allow icinga_host to port 5665
+  become: yes
+  ufw:
+    rule: allow
+    to_port: "5665"
+  when: inventory_hostname in groups.icinga_server
+  notify: reload ufw
+  tags:
+    - ufw
+
+- name: start and enable service
+  become: yes
+  ufw:
+    state: enabled
+  tags:
+    - ufw

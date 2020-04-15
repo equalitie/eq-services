@@ -1,0 +1,15 @@
+# {{ansible_managed}}
+
+[icinga_default]
+pattern = ^icinga2\.
+retentions = 1m:2d,5m:7d,30m:90d,360m:3y
+xFilesFactor = 0.01
+
+[carbon]
+pattern = ^carbon\.
+retentions = 60:90d
+
+[default_1min_for_1day]
+pattern = .*
+retentions = 1m:2d,5m:7d,30m:90d,360m:3y
+xFilesFactor = 0.01

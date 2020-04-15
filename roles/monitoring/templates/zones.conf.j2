@@ -1,0 +1,32 @@
+/*
+ * {{ansible_managed}}
+ *
+ *
+ */
+
+{% for master_host in groups['icinga_server'] %}
+object Endpoint "{{master_host}}" {
+  host = "{{master_host}}"
+  port = "5665"
+}
+{% endfor %}
+
+object Zone "master" {
+  endpoints = [ {% for master_host in groups['icinga_server'] %}"{{master_host}}"{% if not loop.last %}, {% endif %}{% endfor %}  ]
+}
+
+object Endpoint "{{ansible_fqdn}}" {
+}
+
+object Zone "{{ansible_fqdn}}" {
+        endpoints = [ "{{ansible_fqdn}}" ]
+        parent = "master"
+}
+
+object Zone "global-templates" {
+  global = true
+}
+
+object Zone "director-global" {
+  global = true
+}

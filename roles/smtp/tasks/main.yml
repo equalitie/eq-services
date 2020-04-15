@@ -1,0 +1,24 @@
+---
+- name: install smtp software packages
+  become: yes
+  apt:
+    name:
+      - postfix
+      - mailutils
+    state: present
+  tags:
+    - email
+
+- name: postfix main.cf
+  become: yes
+  template:
+    src: main.cf-local.j2
+    dest: /etc/postfix/main.cf
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart postfix
+  tags:
+    - email
+    - main.cf

@@ -1,0 +1,33 @@
+---
+- name: install redmine_cozy_wiki_macros from git
+  become: true
+  become_user: "{{ redmine_user }}"
+  git:
+    repo: "{{ redmine_cozy_wiki_macros_repo }}"
+    dest: "{{ redmine_root }}/plugins/redmine_cozy_wiki_macros"
+    version: "master"
+  notify:
+    - 'plugins migrate'
+    - 'nginx restart'
+
+- name: install redmine_related_wiki from git
+  become: true
+  become_user: "{{ redmine_user }}"
+  git:
+    repo: "{{ redmine_related_wiki_repo }}"
+    dest: "{{ redmine_root }}/plugins/redmine_related_wiki"
+    version: "master"
+  notify:
+    - 'plugins migrate'
+    - 'nginx restart'
+
+- name: install redmine_callout_macro from git
+  become: true
+  become_user: "{{ redmine_user }}"
+  git:
+    repo: "{{ redmine_callout_macro_repo }}"
+    dest: "{{ redmine_root }}/plugins/redmine_callout_macro"
+    version: "master"
+  notify:
+    - 'plugins migrate'
+    - 'nginx restart'

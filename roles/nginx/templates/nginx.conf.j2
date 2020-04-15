@@ -1,0 +1,86 @@
+# {{ansible_managed}}
+user {{nginx_user}} {{nginx_group}};
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+	worker_connections 768;
+	multi_accept on;
+}
+
+http {
+
+	sendfile on;
+	tcp_nopush on;
+	tcp_nodelay on;
+	keepalive_timeout 65;
+	types_hash_max_size 2048;
+	server_tokens off;
+
+{% if 'letsencrypt_server' in group_names %}
+	server_names_hash_bucket_size 512;
+{% else %}
+	server_names_hash_bucket_size 64;
+{% endif %}
+	server_name_in_redirect off;
+
+	include /etc/nginx/mime.types;
+	default_type application/octet-stream;
+
+{% if skip_nginx_tls is not defined or skip_nginx_tls == false %}
+	ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+	ssl_prefer_server_ciphers on;
+{% endif %}
+
+	# Comment these out incase cause problems in server blocks.
+	# If we need these added, add direct to server block.
+	# add_header X-Frame-Options SAMEORIGIN;
+	# add_header X-Content-Type-Options nosniff;
+	# add_header X-XSS-Protection "1; mode=block";
+	# add_header Content-Security-Policy
+
+	access_log /var/log/nginx/access.log;
+	error_log /var/log/nginx/error.log;
+
+	gzip on;
+	gzip_disable "msie6";
+
+	gzip_vary on;
+	gzip_proxied any;
+	gzip_comp_level 6;
+	gzip_buffers 16 8k;
+	gzip_http_version 1.1;
+	gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+	server {
+		listen 80 default_server;
+{% if skip_nginx_tls is not defined or skip_nginx_tls == false %}
+		listen 443 ssl http2 default_server;
+{% endif %}
+		server_name _;
+{% if skip_nginx_tls is not defined or skip_nginx_tls == false %}
+		include snippets/snakeoil.conf;
+		include snippets/https.conf;
+{% endif %}
+		access_log /var/log/nginx/catch-all.access.log;
+		error_log /var/log/nginx/catch-all.error.log;
+		index index.html catchall-index.html;
+		root /var/www/html;
+
+		location = /favicon.ico {
+			log_not_found off;
+			access_log off;
+		}
+
+		location = /robots.txt {
+			log_not_found off;
+			access_log off;
+		}
+
+	}
+
+
+	include /etc/nginx/conf.d/*.conf;
+	include /etc/nginx/sites-enabled/*;
+}

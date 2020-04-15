@@ -1,0 +1,6 @@
+---
+- name: restart mysql
+  become: yes
+  systemd:
+    name: mysql
+    state: restarted

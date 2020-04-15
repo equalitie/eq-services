@@ -1,0 +1,69 @@
+---
+- name: reload nginx
+  become: true
+  systemd:
+    name: nginx
+    state: reloaded
+
+- name: reload ufw
+  become: yes
+  ufw:
+    state: reloaded
+
+- name: restart amavis-new
+  become: true
+  systemd:
+    name: amavisd-new
+    state: restarted
+
+- name: restart postfix
+  become: true
+  systemd:
+    name: postfix
+    state: restarted
+
+- name: compile sieve
+  become: true
+  command: sievec /var/lib/dovecot/sieve/
+
+- name: restart dovecot
+  become: true
+  systemd:
+    name: dovecot
+    state: restarted
+
+- name: regenerate aliases
+  become: true
+  command: newaliases
+
+- name: regenerate maps
+  become: true
+  command: "{{ item }}"
+  loop:
+    - postmap /etc/postfix/virtusertable
+    - postmap /etc/postfix/transport
+  when: postfix_virtual_alias_domains is defined or enable_mailman
+
+- name: restart clamav-freshclam
+  become: true
+  systemd:
+    name: clamav-freshclam
+    state: restarted
+
+- name: restart clamav-daemon
+  become: true
+  systemd:
+    name: clamav-daemon
+    state: restarted
+
+- name: restart mailman
+  become: true
+  systemd:
+    name: mailman
+    state: restarted
+
+- name: restart usermin
+  become: true
+  systemd:
+    name: usermin
+    state: restarted

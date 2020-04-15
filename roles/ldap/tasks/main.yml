@@ -1,0 +1,163 @@
+---
+- name: Install required packages
+  become: true
+  apt:
+    name:
+      - slapd
+      - ldap-utils
+      - schema2ldif
+
+- name: Check if mdb has been setup by us
+  become: true
+  stat:
+    path: "{{ slapd_conf_dir }}/.mdb_ansible_installed"
+  register: mdbinstalled
+
+- name: Check if OLC has been setup by us
+  become: true
+  stat:
+    path: "{{ slapd_conf_dir }}/.olc_ansible_installed"
+  register: olccreated
+
+- name: stop slapd to clear default OLC or mdb directory
+  become: true
+  systemd:
+    name: slapd.service
+    state: stopped
+  when: not olccreated.stat.exists or not mdbinstalled.stat.exists
+  notify:
+    - 'slapd enable'
+
+- name: Clear default OLC if not installed before from us
+  become: true
+  file:
+    path: "{{ slapd_olc_dir }}"
+    state: absent
+  when: not olccreated.stat.exists
+  notify:
+    - 'slapd enable'
+
+- name: Create new slapd OLC location
+  become: true
+  file:
+    path: "{{ slapd_olc_dir }}"
+    state: directory
+    owner: "{{ slapd_user }}"
+    group: "{{ slapd_group }}"
+    mode: '0770'
+
+- name: Hash OLC password
+  become: true
+  command: "/bin/bash -c '/usr/sbin/slappasswd -c \\$6\\$%s.16 -n -T /dev/stdin < <(echo -n $password)'"
+  environment:
+    password: "{{ slapd_olc_rootdn_password | mandatory }}"
+  register: hashedPassword
+  when: not olccreated.stat.exists
+  changed_when: false
+
+- name: Create basic OLC configuration
+  become: true
+  template:
+    src: slapd.conf.j2
+    dest: /tmp/olc.conf
+    mode: '0444'
+  when: not olccreated.stat.exists
+
+- name: Apply basic OLC configuration
+  become: true
+  command: "/usr/sbin/slaptest -f /tmp/olc.conf -F {{ slapd_olc_dir }}"
+  when: not olccreated.stat.exists
+  become_user: "{{ slapd_user }}"
+
+- name: Load core schema
+  become: true
+  shell: "schema2ldif {{ slapd_schema_dir }}/core.schema | slapadd -b cn=config -F {{ slapd_olc_dir }}"
+  when: not olccreated.stat.exists
+
+- name: Give the LDAP user back ownership
+  become: true
+  file:
+    path: "{{ slapd_olc_dir }}"
+    owner: "{{ slapd_user }}"
+    group: "{{ slapd_group }}"
+    mode: '0770'
+    recurse: yes
+
+- name: Create OLC flag
+  become: true
+  copy:
+    content: "{{ ansible_installed_comment }}"
+    dest: "{{ slapd_conf_dir }}/.olc_ansible_installed"
+  when: not olccreated.stat.exists
+
+- name: Clear mdb if not installed before from us
+  become: true
+  file:
+    path: "{{ slapd_mdb_dir }}"
+    state: absent
+  when: not mdbinstalled.stat.exists
+
+- name: Create slapd mdb location
+  become: true
+  file:
+    path: "{{ slapd_mdb_dir }}"
+    state: directory
+    owner: "{{ slapd_user }}"
+    group: "{{ slapd_group }}"
+    mode: '0770'
+
+- name: Create the .mdb_ansible_installed
+  become: true
+  copy:
+    content: "{{ ansible_installed_comment }}"
+    dest: "{{ slapd_conf_dir }}/.mdb_ansible_installed"
+  when: not mdbinstalled.stat.exists
+
+- name: Create slapd unit
+  become: true
+  template:
+    src: slapd.service.j2
+    dest: /etc/systemd/system/slapd.service
+    mode: '0644'
+  notify:
+    - 'reload systemd'
+    - 'slapd enable'
+    - 'slapd restart'
+
+- name: Create tmpfiles config
+  become: true
+  template:
+    src: tmpfiles.conf.j2
+    dest: /etc/tmpfiles.d/slapd.conf
+  notify:
+    - 'create tmpfiles'
+
+- name: Clean OLC configuration
+  become: true
+  file:
+    path: /tmp/olc.conf
+    state: absent
+
+- name: Create ldap cert location
+  become: true
+  file:
+    path: "{{ slapd_conf_dir }}/certs"
+    state: directory
+    owner: "{{ slapd_user }}"
+    group: "{{ slapd_group }}"
+    mode: '0770'
+  tags:
+    - ldap_certs
+
+- name: clean up the dep package installed files
+  become: true
+  file:
+    path: "{{item}}"
+    state: absent
+  loop:
+    - "/etc/init.d/slapd"
+    - "/etc/default/slapd"
+
+## At this point we should have empty ldap
+
+- meta: flush_handlers

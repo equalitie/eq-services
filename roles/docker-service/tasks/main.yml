@@ -1,0 +1,71 @@
+---
+# tasks file for docker-service
+
+- name: make sure no old versions
+  apt:
+    name:
+      - docker
+      - docker-engine
+      - docker.io
+    state: absent
+  become: true
+  tags:
+    - apt
+
+- name: Update apt package index
+  apt:
+    update_cache: yes
+  become: true
+  tags:
+    - apt
+
+- name: Allow apt to use a repository over HTTPS
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+    state: present
+  become: true
+  tags:
+    - apt
+
+- name: Add Docker's official GPG Key
+  apt_key:
+    url: "{{docker_gpg_key}}"
+    state: present
+  become: true
+  tags:
+    - apt
+
+- name: Add Docker's official GPG Key
+  apt_key:
+    url: "{{docker_gpg_key}}"
+    state: present
+  become: true
+  tags:
+    - apt
+
+- name: Setup stable repository
+  apt_repository:
+    repo: deb {{docker_repository_url}} {{ansible_distribution_release}} stable
+    state: present
+  become: true
+  tags:
+    - apt
+
+- name: Update apt package index
+  apt:
+    update_cache: yes
+  become: true
+  tags:
+    - apt
+
+- name: Install Docker CE
+  apt:
+    name: docker-ce
+    state: present
+  become: true
+  tags:
+    - apt

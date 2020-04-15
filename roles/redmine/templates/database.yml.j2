@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+production:
+  adapter: postgresql
+  database: {{ postgresql_redmine_db }} 
+  host: localhost
+  username: {{ postgresql_redmine_user }} 
+  password: "{{ postgresql_redmine_user_pass }}"
+  encoding: utf8

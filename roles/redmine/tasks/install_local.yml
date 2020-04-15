@@ -1,0 +1,72 @@
+---
+# Install plugin locally defined in redmine_local_install
+
+# Make sure this archive will unarchive as item.name or
+# it will breal. ie; don't unarchive to directory name
+# ../plugin/plugin-2.4.1. Fix the archive yourself if
+# this is how it unarchives
+
+- name: unarchive to redmine plugins
+  become: true
+  become_user: "{{ redmine_user }}"
+  unarchive:
+    src: "config/redmine/plugins/{{ item.file }}"
+    dest: "{{ redmine_root }}/plugins/"
+    owner: "{{ redmine_user }}"
+    group: "{{ redmine_group }}"
+    creates: "{{ redmine_root }}/plugins/{{ item.name }}"
+  notify: "{{ item.notify }}"
+  loop: "{{ redmine_local_install }}"
+  register: unarch_local
+
+- name: make a temp directory to install scripts to
+  become: true
+  file:
+    path: "{{ redmine_root }}/ansible"
+    state: directory
+    owner: "{{ redmine_user }}"
+    group: "{{ redmine_group }}"
+    mode: '0700'
+
+- name: copy our install script over
+  become: true
+  become_user: "{{ redmine_user }}"
+  template:
+    src: "config/redmine/scripts/{{ item.name }}"
+    dest: "{{ redmine_root }}/ansible/{{ item.name }}"
+    mode: '0755'
+  loop: "{{ redmine_local_install }}"
+  when: item.script | default(false)
+
+- name: run our install script
+  become: true
+  become_user: "{{ redmine_user }}"
+  command: "ansible/{{ item.name }}"
+  args:
+    chdir: "{{ redmine_root }}"
+    creates: "{{ redmine_root }}/plugins/{{ item.name }}/.ansible_script"
+  loop: "{{ redmine_local_install }}"
+  when: item.script | default(false)
+
+- name: create .ansible_script to show we used script
+  become: true
+  copy:
+    content: "{{ ansible_installed_comment }}"
+    dest: "{{ redmine_root }}/plugins/{{ item.name }}/.ansible_script"
+    owner: "{{ redmine_user }}"
+    group: "{{ redmine_group }}"
+  loop: "{{ redmine_local_install }}"
+  when: item.script | default(false)
+
+- name: remove temp script directory
+  become: true
+  file:
+    path: "{{ redmine_root }}/ansible"
+    state: absent
+
+- name: remove archive for redmine plugins
+  become: true
+  file:
+    path: "{{ redmine_root }}/plugins/{{ item.file }}"
+    state: absent
+  loop: "{{ redmine_local_install }}"

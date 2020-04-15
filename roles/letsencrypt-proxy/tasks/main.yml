@@ -1,0 +1,48 @@
+---
+# nginx installed by nginx role
+
+- name: Install packages
+  apt:
+    name:
+      - certbot
+      - php-cli
+      - php-yaml
+    state: present
+  become: true
+  tags:
+    - apt
+
+- name: create non-auto-certs-renew directories
+  file:
+    path: "/opt/{{item}}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  loop:
+    - non-auto
+    - non-auto/archives
+
+- name: install non-auto-certs-renew from template
+  template:
+    src: non-auto-certs-renew.j2
+    dest: /usr/local/bin/non-auto-certs-renew
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: install non-auto.yml.example to config/
+  local_action:
+    module: copy
+    src: non-auto.yml.example
+    dest: config/non-auto.yml.example
+
+- name: install non-auto-certs-renew config
+  template:
+    src: "{{item}}.j2"
+    dest: "/opt/non-auto/{{item}}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - non-auto.yml

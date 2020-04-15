@@ -1,0 +1,7 @@
+---
+use_pwpusher: false
+pwpusher_days: 5
+pwpusher_views: 3
+pwpusher_url: ""
+passwd_maxlen: 20
+passwd_minlen: 33
